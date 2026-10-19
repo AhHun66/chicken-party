@@ -1,0 +1,1949 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>小雞 4 人派對：多關卡積分大賽</title>
+    <!-- Phaser 3 遊戲引擎 -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <!-- 導入可愛圓潤字體 (Fredoka + M PLUS Rounded 1c) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=M+PLUS+Rounded+1c:wght@700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        * { 
+            box-sizing: border-box; 
+            user-select: none; 
+            -webkit-user-select: none;
+            font-family: 'Fredoka', 'M PLUS Rounded 1c', 'Comic Sans MS', sans-serif;
+            touch-action: manipulation;
+        }
+        body {
+            margin: 0;
+            padding: 15px;
+            background: linear-gradient(135deg, #1f1c2c 0%, #928dab 100%);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* 遊戲主畫面容器 1280x720 支援手機 RWD 自適應縮放 */
+        #game-container {
+            width: 1280px;
+            height: 720px;
+            max-width: 100%;
+            border: 5px solid #ffffff;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        /* 手機虛擬控制按鈕區 (預設隱藏，進入關卡自動顯示) */
+        #mobile-controls {
+            display: none;
+            width: 1280px;
+            max-width: 100%;
+            justify-content: space-between;
+            padding: 10px 20px;
+            margin-top: 5px;
+        }
+        .ctrl-group {
+            display: flex;
+            gap: 15px;
+        }
+        .m-btn {
+            width: 75px;
+            height: 75px;
+            background: rgba(255, 255, 255, 0.25);
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            font-size: 24px;
+            color: #ffffff;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+            cursor: pointer;
+        }
+        .m-btn:active {
+            background: rgba(0, 184, 148, 0.7);
+            transform: scale(0.92);
+        }
+
+        /* 隱藏的 DOM 排行榜 */
+        #scoreboard {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 遊戲主畫面容器 -->
+    <div id="game-container"></div>
+
+    <!-- 手機專用虛擬控制面板 -->
+    <div id="mobile-controls">
+        <div class="ctrl-group">
+            <div class="m-btn" id="btn-left">◀</div>
+            <div class="m-btn" id="btn-right">▶</div>
+        </div>
+        <div class="ctrl-group">
+            <div class="m-btn" id="btn-jump" style="background: rgba(0, 184, 148, 0.4);">▲</div>
+        </div>
+    </div>
+
+    <!-- 隱藏的 DOM 排行榜 -->
+    <div id="scoreboard">
+        <div class="score-box p1-color">P1 白小雞: <span id="score-p1">0</span> 分</div>
+        <div class="score-box p2-color">P2 藍小雞: <span id="score-p2">0</span> 分</div>
+        <div class="score-box p3-color">P3 綠小雞: <span id="score-p3">0</span> 分</div>
+        <div class="score-box p4-color">P4 粉小雞: <span id="score-p4">0</span> 分</div>
+    </div>
+
+<script>
+    // 可愛字體樣式設定 (供 Phaser 內部使用)
+    const CUTE_FONT_FAMILY = "'M PLUS Rounded 1c', 'Fredoka', 'Comic Sans MS', sans-serif";
+
+    // -------------------------------------------------------------
+    // 全域分數與遊戲狀態變數
+    // -------------------------------------------------------------
+    let scores = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    let currentStageIndex = 1;
+    
+    let joinedPlayers = { 1: true, 2: false, 3: false, 4: false };
+    let readyStatus = { 1: false, 2: false, 3: false, 4: false };
+
+    const playerNames = {
+        1: 'P1 白小雞',
+        2: 'P2 藍小雞',
+        3: 'P3 綠小雞',
+        4: 'P4 粉小雞'
+    };
+
+    // 手機觸控按鈕狀態追蹤
+    let mobileInput = { left: false, right: false, jump: false, jumpJustDown: false };
+
+    function setupMobileButtonListeners() {
+        const bLeft = document.getElementById('btn-left');
+        const bRight = document.getElementById('btn-right');
+        const bJump = document.getElementById('btn-jump');
+
+        if (!bLeft || !bRight || !bJump) return;
+
+        const bindTouch = (elem, prop) => {
+            elem.addEventListener('touchstart', (e) => { e.preventDefault(); mobileInput[prop] = true; if(prop==='jump') mobileInput.jumpJustDown = true; });
+            elem.addEventListener('touchend', (e) => { e.preventDefault(); mobileInput[prop] = false; });
+            elem.addEventListener('mousedown', (e) => { e.preventDefault(); mobileInput[prop] = true; if(prop==='jump') mobileInput.jumpJustDown = true; });
+            elem.addEventListener('mouseup', (e) => { e.preventDefault(); mobileInput[prop] = false; });
+            elem.addEventListener('mouseleave', (e) => { mobileInput[prop] = false; });
+        };
+
+        bindTouch(bLeft, 'left');
+        bindTouch(bRight, 'right');
+        bindTouch(bJump, 'jump');
+    }
+    window.addEventListener('DOMContentLoaded', setupMobileButtonListeners);
+
+    function toggleMobileControls(show) {
+        let mc = document.getElementById('mobile-controls');
+        if (mc) mc.style.display = show ? 'flex' : 'none';
+    }
+
+    // -------------------------------------------------------------
+    // 音效產生器 (Web Audio API)
+    // -------------------------------------------------------------
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound(type) {
+        try {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            const now = audioCtx.currentTime;
+
+            if (type === 'beep') {
+                osc.frequency.setValueAtTime(440, now);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now); osc.stop(now + 0.15);
+            } else if (type === 'start') {
+                osc.frequency.setValueAtTime(880, now);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            } else if (type === 'hit') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(40, now + 0.2);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now); osc.stop(now + 0.2);
+            } else if (type === 'powerup') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(900, now + 0.3);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            } else if (type === 'shoot') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now); osc.stop(now + 0.1);
+            }
+        } catch(e){}
+    }
+
+    // -------------------------------------------------------------
+    // 背景豐富化畫面 (星空 + 科技網格)
+    // -------------------------------------------------------------
+    function createRichBackground(scene) {
+        let bg = scene.add.graphics();
+        bg.fillGradientStyle(0x0a0a16, 0x0a0a16, 0x16162e, 0x16162e, 1);
+        bg.fillRect(0, 0, 1280, 720);
+
+        bg.lineStyle(1, 0xffffff, 0.05);
+        for (let x = 0; x <= 1280; x += 40) {
+            bg.beginPath(); bg.moveTo(x, 0); bg.lineTo(x, 720); bg.strokePath();
+        }
+        for (let y = 0; y <= 720; y += 40) {
+            bg.beginPath(); bg.moveTo(0, y); bg.lineTo(1280, y); bg.strokePath();
+        }
+
+        for (let i = 0; i < 40; i++) {
+            let sx = Phaser.Math.Between(0, 1280);
+            let sy = Phaser.Math.Between(0, 720);
+            let star = scene.add.circle(sx, sy, Phaser.Math.FloatBetween(0.8, 2), 0xffffff, Phaser.Math.FloatBetween(0.2, 0.8));
+            scene.tweens.add({
+                targets: star,
+                alpha: 0.1,
+                duration: Phaser.Math.Between(1000, 3000),
+                yoyo: true,
+                repeat: -1
+            });
+        }
+    }
+
+    // -------------------------------------------------------------
+    // 遊戲內建頂部計分板渲染函數
+    // -------------------------------------------------------------
+    function createInGameScoreboard(scene) {
+        let barBg = scene.add.graphics();
+        barBg.fillStyle(0x1e1e2e, 0.85);
+        barBg.fillRoundedRect(60, 12, 1160, 42, 20);
+        barBg.lineStyle(2, 0xffffff, 0.25);
+        barBg.strokeRoundedRect(60, 12, 1160, 42, 20);
+        barBg.setScrollFactor(0);
+        barBg.setDepth(100);
+
+        let s1 = scene.add.text(180, 33, `P1 白小雞: ${scores[1]} 分`, { fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+        let s2 = scene.add.text(470, 33, `P2 藍小雞: ${scores[2]} 分`, { fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#74b9ff', fontWeight: '900' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+        let s3 = scene.add.text(770, 33, `P3 綠小雞: ${scores[3]} 分`, { fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#55efc4', fontWeight: '900' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+        let s4 = scene.add.text(1060, 33, `P4 粉小雞: ${scores[4]} 分`, { fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#ff7675', fontWeight: '900' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+
+        scene.scoreTexts = { 1: s1, 2: s2, 3: s3, 4: s4 };
+    }
+
+    function updateInGameScoreboard(scene) {
+        if (scene.scoreTexts) {
+            scene.scoreTexts[1].setText(`P1 白小雞: ${scores[1]} 分`);
+            scene.scoreTexts[2].setText(`P2 藍小雞: ${scores[2]} 分`);
+            scene.scoreTexts[3].setText(`P3 綠小雞: ${scores[3]} 分`);
+            scene.scoreTexts[4].setText(`P4 粉小雞: ${scores[4]} 分`);
+        }
+    }
+
+    // -------------------------------------------------------------
+    // 酷炫道具特效生成函數
+    // -------------------------------------------------------------
+    function createCoolItemEffect(scene, item, colorHex) {
+        let ringG = scene.add.graphics();
+        ringG.lineStyle(2.5, colorHex, 0.9);
+        
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 2) {
+            ringG.beginPath();
+            ringG.arc(0, 0, 22, a, a + Math.PI / 3, false);
+            ringG.strokePath();
+        }
+
+        scene.tweens.add({
+            targets: ringG,
+            angle: 360,
+            duration: 2500,
+            repeat: -1,
+            ease: 'Linear'
+        });
+
+        item.coolRing = ringG;
+    }
+
+    function updateCoolItemPos(item) {
+        if (item && item.coolRing) {
+            item.coolRing.setPosition(item.x, item.y);
+        }
+    }
+
+    function destroyCoolItemEffect(item) {
+        if (item && item.coolRing) {
+            item.coolRing.destroy();
+            item.coolRing = null;
+        }
+    }
+
+    // -------------------------------------------------------------
+    // 1. 房間與連線變數
+    // -------------------------------------------------------------
+    let roomId = null;
+    let myId = 'player_' + Math.floor(Math.random() * 10000);
+    let myPlayerIndex = 1;
+    let isHost = false;
+
+    // -------------------------------------------------------------
+    // 2. 精緻材質造型生成
+    // -------------------------------------------------------------
+    function initTextures(scene) {
+        if (scene.textures.exists('p1_walk_1')) return;
+        let g = scene.make.graphics({ x: 0, y: 0, add: false });
+
+        let configs = [
+            { key: 'p1', body: 0xffffff, comb: 0xe74c3c, belly: 0xecf0f1 },
+            { key: 'p2', body: 0x3498db, comb: 0xf1c40f, belly: 0x2980b9 },
+            { key: 'p3', body: 0x2ecc71, comb: 0xe67e22, belly: 0x27ae60 },
+            { key: 'p4', body: 0xe91e63, comb: 0x9b59b6, belly: 0xd81b60 }
+        ];
+
+        configs.forEach(c => {
+            drawCuteChicken(g, c.body, c.comb, c.belly, 0);
+            g.generateTexture(c.key + '_walk_1', 36, 36);
+            g.clear();
+
+            drawCuteChicken(g, c.body, c.comb, c.belly, 1);
+            g.generateTexture(c.key + '_walk_2', 36, 36);
+            g.clear();
+        });
+
+        // 🔫 升級雷射槍造型
+        g.fillStyle(0x34495e, 1); g.fillRect(8, 12, 16, 8);
+        g.fillStyle(0xf1c40f, 1); g.fillRect(14, 10, 10, 4);
+        g.fillStyle(0x00ffff, 1); g.fillCircle(24, 16, 3);
+        g.generateTexture('gun', 36, 36); g.clear();
+
+        // 科技導光平台材質
+        g.fillStyle(0x1a252f, 1); g.fillRect(0, 0, 32, 32);
+        g.fillStyle(0x34495e, 1); g.fillRect(2, 2, 28, 28);
+        g.fillStyle(0x00ffff, 0.8); g.fillRect(0, 0, 32, 4);
+        g.generateTexture('platform_neon', 32, 32); g.clear();
+
+        // 🔥 熔岩特效塊
+        g.fillStyle(0xe74c3c, 1); g.fillCircle(16, 16, 14);
+        g.fillStyle(0xf39c12, 1); g.fillCircle(16, 16, 9);
+        g.fillStyle(0xffffff, 0.9); g.fillCircle(16, 16, 4);
+        g.generateTexture('lava', 32, 32); g.clear();
+
+        // ⚡ 超大雷射牆障礙材質
+        g.fillStyle(0xff0055, 1); g.fillRect(0, 0, 50, 50);
+        g.fillStyle(0xffffff, 1); g.fillRect(15, 0, 20, 50);
+        g.generateTexture('laser_wall', 50, 50); g.clear();
+
+        // 💵 小鈔票造型 (美元綠色紙鈔風格)
+        g.fillStyle(0x27ae60, 1); g.fillRoundedRect(2, 6, 26, 16, 3);
+        g.fillStyle(0x2ecc71, 1); g.fillRoundedRect(4, 8, 22, 12, 2);
+        g.fillStyle(0xffffff, 0.9); g.fillRect(12, 11, 6, 6);
+        g.generateTexture('coin_small', 30, 28); g.clear();
+
+        // 💵 大鈔票/金錢包造型 (厚疊鈔票風格)
+        g.fillStyle(0x1e8449, 1); g.fillRoundedRect(2, 4, 36, 24, 5);
+        g.fillStyle(0x27ae60, 1); g.fillRoundedRect(5, 7, 30, 18, 4);
+        g.fillStyle(0xf1c40f, 1); g.fillCircle(20, 16, 6);
+        g.fillStyle(0xffffff, 0.95); g.fillRect(18, 14, 4, 4);
+        g.generateTexture('coin_big', 40, 32); g.clear();
+
+        // 🪚 酷炫金屬血齒輪鋸子造型
+        let cx = 18, cy = 18;
+        let teeth = 8;
+        let outerR = 17, innerR = 11;
+        
+        g.fillStyle(0xc0392b, 1);
+        g.beginPath();
+        for (let i = 0; i < teeth; i++) {
+            let a1 = (i * Math.PI * 2) / teeth;
+            let a2 = ((i + 0.5) * Math.PI * 2) / teeth;
+            let a3 = ((i + 1) * Math.PI * 2) / teeth;
+            g.lineTo(cx + Math.cos(a1) * outerR, cy + Math.sin(a1) * outerR);
+            g.lineTo(cx + Math.cos(a2) * innerR, cy + Math.sin(a2) * innerR);
+            g.lineTo(cx + Math.cos(a3) * outerR, cy + Math.sin(a3) * outerR);
+        }
+        g.closePath();
+        g.fill();
+
+        g.fillStyle(0x7f8c8d, 1); g.fillCircle(cx, cy, 10);
+        g.fillStyle(0xbdc3c7, 1); g.fillCircle(cx, cy, 7);
+        g.fillStyle(0x2c3e50, 1); g.fillCircle(cx, cy, 3);
+        g.generateTexture('saw', 36, 36); g.clear();
+
+        // 雷射子彈
+        g.fillStyle(0x00ffff, 1); g.fillCircle(6, 6, 5);
+        g.fillStyle(0xffffff, 1); g.fillCircle(6, 6, 2);
+        g.generateTexture('bullet', 12, 12); g.clear();
+        
+        // 💣 炸彈道具造型
+        g.fillStyle(0x222222, 1); g.fillCircle(16, 18, 12);
+        g.fillStyle(0xe74c3c, 1); g.fillRect(14, 2, 4, 6);
+        g.fillStyle(0xf1c40f, 1); g.fillCircle(16, 2, 3);
+        g.generateTexture('bomb', 32, 32); g.clear();
+
+        // 💥 各色粒子紋理
+        g.fillStyle(0xf1c40f, 1); g.fillCircle(4, 4, 4); g.generateTexture('particle_fire', 8, 8); g.clear();
+        g.fillStyle(0x3498db, 1); g.fillCircle(4, 4, 4); g.generateTexture('particle_shield', 8, 8); g.clear();
+        g.fillStyle(0x2ecc71, 1); g.fillCircle(4, 4, 4); g.generateTexture('particle_spread', 8, 8); g.clear();
+        
+        // ⭐ 暈眩金星紋理
+        g.fillStyle(0xf1c40f, 1);
+        g.fillTriangle(6, 0, 8, 4, 12, 4); g.fillTriangle(6, 12, 8, 8, 12, 8);
+        g.generateTexture('star', 12, 12); g.clear();
+
+        // 🛡️ 護盾道具外觀
+        g.fillStyle(0x3498db, 1); g.fillCircle(16, 16, 12);
+        g.fillStyle(0x00ffff, 0.7); g.fillCircle(16, 16, 8);
+        g.fillStyle(0xffffff, 0.95); g.fillCircle(12, 12, 3);
+        g.generateTexture('item_shield', 32, 32); g.clear();
+
+        g.fillStyle(0x222222, 1); g.fillRect(0, 0, 32, 32);
+        g.lineStyle(2, 0xf1c40f, 1); g.strokeRect(2, 2, 28, 28);
+        g.fillStyle(0xf1c40f, 1);
+        g.beginPath(); g.moveTo(18, 4); g.lineTo(8, 17); g.lineTo(15, 17); g.lineTo(12, 28); g.lineTo(24, 13); g.lineTo(17, 13); g.closePath(); g.fill();
+        g.generateTexture('item_rapid', 32, 32); g.clear();
+
+        g.fillStyle(0x1b4d3e, 1); g.fillRoundedRect(2, 2, 28, 28, 6);
+        g.lineStyle(2, 0x2ecc71, 1); g.strokeRoundedRect(2, 2, 28, 28, 6);
+        g.fillStyle(0x2ecc71, 1);
+        g.fillTriangle(16, 6, 25, 22, 7, 22);
+        g.fillStyle(0xffffff, 1); g.fillCircle(16, 15, 3);
+        g.generateTexture('item_spread', 32, 32); g.clear();
+    }
+
+    function drawCuteChicken(g, bodyColor, combColor, bellyColor, frame) {
+        g.fillStyle(0xf39c12, 1);
+        if (frame === 0) {
+            g.fillRect(10, 31, 3, 5);
+            g.fillRect(23, 29, 3, 5);
+        } else {
+            g.fillRect(13, 29, 3, 5);
+            g.fillRect(20, 31, 3, 5);
+        }
+
+        g.fillStyle(bodyColor, 1);
+        g.fillRoundedRect(4, 6, 28, 24, 10);
+
+        g.fillStyle(bellyColor, 0.7);
+        g.fillEllipse(18, 20, 16, 14);
+
+        g.fillStyle(combColor, 1);
+        g.fillCircle(15, 4, 4);
+        g.fillCircle(20, 5, 3.5);
+
+        g.fillStyle(0x111111, 1);
+        g.fillCircle(23, 13, 3);
+        g.fillStyle(0xffffff, 1);
+        g.fillCircle(24, 12, 1);
+
+        g.fillStyle(0xf1c40f, 1);
+        g.fillTriangle(28, 13, 34, 16, 28, 19);
+    }
+
+    function initAnimations(scene) {
+        ['p1', 'p2', 'p3', 'p4'].forEach(key => {
+            if (!scene.anims.exists(key + '_run')) {
+                scene.anims.create({
+                    key: key + '_run',
+                    frames: [
+                        { key: key + '_walk_1' },
+                        { key: key + '_walk_2' }
+                    ],
+                    frameRate: 10,
+                    repeat: -1
+                });
+            }
+        });
+    }
+
+    // --- 3 秒倒數與緩衝抬頭顯示 ---
+    function startStageBuffer(scene, stageTitle, onComplete) {
+        let titleTxt = scene.add.text(640, 220, stageTitle, {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '34px', fill: '#f1c40f', fontWeight: '900', stroke: '#000', strokeThickness: 6
+        }).setOrigin(0.5);
+
+        let countdownTxt = scene.add.text(640, 330, '3', {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '95px', fill: '#ffffff', fontWeight: '900', stroke: '#000', strokeThickness: 8
+        }).setOrigin(0.5);
+
+        playSound('beep');
+
+        let count = 3;
+        scene.time.addEvent({
+            delay: 1000,
+            repeat: 3,
+            callback: () => {
+                count--;
+                if (count > 0) {
+                    countdownTxt.setText(count.toString());
+                    playSound('beep');
+                } else if (count === 0) {
+                    countdownTxt.setText('START!').setStyle({ fill: '#2ecc71' });
+                    playSound('start');
+                } else {
+                    titleTxt.destroy();
+                    countdownTxt.destroy();
+                    if (onComplete) onComplete();
+                }
+            }
+        });
+    }
+
+    // -------------------------------------------------------------
+    // 3. 遊戲場景設定 (Phaser Config)
+    // -------------------------------------------------------------
+    const config = {
+        type: Phaser.AUTO,
+        width: 1280,
+        height: 720,
+        parent: 'game-container',
+        scale: {
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_BOTH
+        },
+        physics: {
+            default: 'arcade',
+            arcade: { gravity: { y: 0 }, debug: false }
+        },
+        scene: [TitleScene, Stage1Scene, Stage2Scene, Stage3Scene, Stage4Scene, Stage5Scene, Stage6Scene, ResultScene]
+    };
+
+    const game = new Phaser.Game(config);
+
+    // -------------------------------------------------------------
+    // 獨立主畫面 Scene (TitleScene)
+    // -------------------------------------------------------------
+    function TitleScene() { Phaser.Scene.call(this, { key: 'TitleScene' }); }
+    TitleScene.prototype = Object.create(Phaser.Scene.prototype);
+    TitleScene.prototype.preload = function() { initTextures(this); };
+    TitleScene.prototype.create = function() {
+        toggleMobileControls(false); // 主畫面隱藏手機虛擬鍵
+        initAnimations(this);
+        createRichBackground(this);
+
+        this.add.text(640, 45, '小雞 4 人派對大賽', {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '40px', fill: '#ff7675', fontWeight: '900', stroke: '#fff', strokeThickness: 5
+        }).setOrigin(0.5);
+
+        let leftDecoChicken = this.add.sprite(350, 45, 'p2_walk_1').setScale(1.6);
+        leftDecoChicken.play('p2_run');
+
+        let rightDecoChicken = this.add.sprite(930, 45, 'p3_walk_1').setScale(1.6);
+        rightDecoChicken.play('p3_run');
+
+        this.add.text(640, 85, '目標獲得 30 分奪下總冠軍！', {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '17px', fill: '#dfe6e9', fontWeight: '800', stroke: '#000', strokeThickness: 4
+        }).setOrigin(0.5);
+
+        // ==========================================
+        // 【紅框左上角】派對房號與房號輸入區
+        // ==========================================
+        this.add.text(125, 125, '派對房號：', { fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0, 0.5);
+        let roomStatusStr = roomId ? (roomId + (isHost ? ' (房主 P1)' : ' (成員 P2)')) : '未加入房間';
+        let roomBadge = this.add.rectangle(290, 125, 160, 32, 0xffffff).setStrokeStyle(2, 0xff7675);
+        this.add.text(290, 125, roomStatusStr, { fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#d63031', fontWeight: '900' }).setOrigin(0.5);
+
+        this.add.text(785, 125, '房號:', { fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0, 0.5);
+
+        if (!window.domRoomInput) {
+            window.domRoomInput = document.createElement('input');
+            window.domRoomInput.type = 'text';
+            window.domRoomInput.maxLength = 4;
+            window.domRoomInput.placeholder = '4位房號';
+            window.domRoomInput.style.position = 'absolute';
+            window.domRoomInput.style.width = '90px';
+            window.domRoomInput.style.height = '32px';
+            window.domRoomInput.style.textAlign = 'center';
+            window.domRoomInput.style.fontSize = '14px';
+            window.domRoomInput.style.fontWeight = '800';
+            window.domRoomInput.style.borderRadius = '8px';
+            window.domRoomInput.style.border = '3px solid #ff7675';
+            window.domRoomInput.style.zIndex = '10';
+            document.body.appendChild(window.domRoomInput);
+        }
+        window.domRoomInput.style.display = 'block';
+
+        let updateInputPos = () => {
+            let canvasRect = document.querySelector('canvas').getBoundingClientRect();
+            window.domRoomInput.style.left = (canvasRect.left + canvasRect.width * (845 / 1280)) + 'px';
+            window.domRoomInput.style.top = (canvasRect.top + canvasRect.height * (110 / 720)) + 'px';
+        };
+        updateInputPos();
+        window.addEventListener('resize', updateInputPos);
+
+        // 4 個玩家選擇卡片
+        let playerBoxes = [
+            { index: 1, name: 'P1 白小雞', color: 0xffffff, textColor: '#ffffff', key: 'p1', x: 230, y: 260 },
+            { index: 2, name: 'P2 藍小雞', color: 0x74b9ff, textColor: '#74b9ff', key: 'p2', x: 500, y: 260 },
+            { index: 3, name: 'P3 綠小雞', color: 0x55efc4, textColor: '#55efc4', key: 'p3', x: 770, y: 260 },
+            { index: 4, name: 'P4 粉小雞', color: 0xff7675, textColor: '#ff7675', key: 'p4', x: 1040, y: 260 }
+        ];
+
+        playerBoxes.forEach(p => {
+            this.add.rectangle(p.x, p.y, 230, 160, 0x2d3436, 0.9).setStrokeStyle(3, p.color);
+            
+            if (joinedPlayers[p.index]) {
+                this.add.text(p.x, p.y - 52, p.name, {
+                    fontFamily: CUTE_FONT_FAMILY, fontSize: '17px', fill: p.textColor, fontWeight: '900'
+                }).setOrigin(0.5);
+
+                let chickenSprite = this.add.sprite(p.x, p.y - 10, p.key + '_walk_1');
+                chickenSprite.setScale(1.6);
+                chickenSprite.play(p.key + '_run');
+
+                let isReady = readyStatus[p.index];
+                let btnBgColor = isReady ? 0x00b894 : 0x636e72;
+                let btnTextStr = isReady ? '已準備就緒' : '點擊準備';
+
+                let readyBtn = this.add.rectangle(p.x, p.y + 40, 130, 30, btnBgColor).setInteractive({ useHandCursor: true });
+                this.add.text(p.x, p.y + 40, btnTextStr, {
+                    fontFamily: CUTE_FONT_FAMILY, fontSize: '12px', fill: '#ffffff', fontWeight: '900'
+                }).setOrigin(0.5);
+
+                readyBtn.on('pointerdown', () => {
+                    if (p.index === myPlayerIndex) {
+                        readyStatus[p.index] = !readyStatus[p.index];
+                        playSound('beep');
+                        this.scene.restart();
+                    }
+                });
+
+            } else {
+                this.add.text(p.x, p.y - 10, '等待玩家加入...', {
+                    fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#b2bec3', fontWeight: '700', fontStyle: 'italic'
+                }).setOrigin(0.5);
+            }
+        });
+
+        // ==========================================
+        // 【控制按鈕區】排在開始按鈕上方
+        // ==========================================
+        let createBtn = this.add.rectangle(640, 485, 340, 50, 0x0984e3).setInteractive({ useHandCursor: true });
+        this.add.text(640, 485, '建立 4 人派對房', { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
+        createBtn.on('pointerdown', () => {
+            roomId = Math.floor(1000 + Math.random() * 9000).toString();
+            isHost = true;
+            myPlayerIndex = 1;
+            joinedPlayers = { 1: true, 2: false, 3: false, 4: false };
+            readyStatus = { 1: false, 2: false, 3: false, 4: false };
+            playSound('powerup');
+            this.scene.restart();
+        });
+
+        let joinBtn = this.add.rectangle(640, 548, 340, 50, 0x3498db).setInteractive({ useHandCursor: true });
+        this.add.text(640, 548, '加入房間', { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
+        joinBtn.on('pointerdown', () => {
+            let val = window.domRoomInput.value.trim();
+            if (val.length === 4) {
+                roomId = val;
+                isHost = false;
+                myPlayerIndex = 2;
+                joinedPlayers = { 1: true, 2: true, 3: false, 4: false };
+                readyStatus = { 1: false, 2: false, 3: false, 4: false };
+                window.domRoomInput.style.display = 'none';
+                playSound('powerup');
+                this.scene.restart();
+            } else {
+                alert('請輸入正確的 4 位數房號！');
+            }
+        });
+
+        if (roomId) {
+            let copyBtn = this.add.rectangle(1040, 125, 110, 34, 0xfab1a0).setInteractive({ useHandCursor: true });
+            this.add.text(1040, 125, '複製連結', { fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#d35400', fontWeight: '900' }).setOrigin(0.5);
+            copyBtn.on('pointerdown', () => {
+                const link = window.location.origin + window.location.pathname + '?room=' + roomId;
+                navigator.clipboard.writeText(link);
+                alert('4 人派對邀請連結已複製到剪貼簿！');
+            });
+        }
+
+        // ==========================================
+        // 【開始遊戲按鈕】最下方
+        // ==========================================
+        let startBtn = this.add.rectangle(640, 625, 340, 56, 0x00b894).setInteractive({ useHandCursor: true });
+        this.add.text(640, 625, '開始遊戲 / 進入關卡', {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '24px', fill: '#ffffff', fontWeight: '900'
+        }).setOrigin(0.5);
+
+        startBtn.on('pointerover', () => startBtn.setFillStyle(0x55efc4));
+        startBtn.on('pointerout', () => startBtn.setFillStyle(0x00b894));
+        startBtn.on('pointerdown', () => {
+            let allReady = true;
+            for (let i = 1; i <= 4; i++) {
+                if (joinedPlayers[i] && !readyStatus[i]) {
+                    allReady = false;
+                    break;
+                }
+            }
+
+            if (!allReady) {
+                alert('還有玩家尚未準備就緒！請大家點擊「點擊準備」後再開始遊戲。');
+                return;
+            }
+
+            playSound('start');
+            if (window.domRoomInput) window.domRoomInput.style.display = 'none';
+            toggleMobileControls(true); // 進入關卡顯示手機虛擬鍵
+            this.scene.start('Stage1Scene');
+        });
+    };
+
+    // -------------------------------------------------------------
+    // 全關卡通用的擊飛死亡動畫函數
+    // -------------------------------------------------------------
+    function eliminatePlayer(scene, p) {
+        if (!p.alive || scene.isEnded) return;
+        p.alive = false;
+        p.anims.stop();
+        playSound('hit');
+        p.setTint(0x777777);
+        if (p.shieldRing) { p.shieldRing.destroy(); p.shieldRing = null; }
+        if (p.gunSprite) { p.gunSprite.destroy(); p.gunSprite = null; }
+        if (p.statusText) { p.statusText.destroy(); p.statusText = null; }
+
+        p.body.checkCollision.none = true;
+        p.body.setAllowGravity(true);
+        p.setVelocity(Phaser.Math.Between(-250, 250), -600);
+        p.setAngularVelocity(Phaser.Math.Between(-400, 400));
+
+        let deadCount = scene.players.filter(pl => !pl.alive).length;
+        scores[p.pIndex] += deadCount;
+        updateInGameScoreboard(scene);
+
+        if (scene.sys.settings.key === 'Stage4Scene') {
+            let aliveList = scene.players.filter(pl => pl.alive);
+            if (aliveList.length <= 1) {
+                scene.isEnded = true;
+                if (aliveList.length === 1) {
+                    scores[aliveList[0].pIndex] += 4;
+                    updateInGameScoreboard(scene);
+                }
+                scene.time.delayedCall(800, () => {
+                    scene.scene.start('ResultScene');
+                });
+            }
+        } else {
+            checkAlivePlayers(scene);
+        }
+    }
+
+    function setupStageCommon(scene) {
+        scene.isReady = false;
+        scene.isEnded = false;
+        scene.matchTimer = 0;
+
+        scene.time.addEvent({
+            delay: 25000,
+            callback: () => {
+                if (!scene.isEnded) {
+                    endStage(scene);
+                }
+            }
+        });
+    }
+
+    function checkAlivePlayers(scene) {
+        if (!scene.isReady || scene.isEnded) return;
+        let aliveList = scene.players.filter(p => p.alive);
+        if (aliveList.length <= 1) {
+            endStage(scene);
+        }
+    }
+
+    function endStage(scene) {
+        if (scene.isEnded) return;
+        scene.isEnded = true;
+
+        let aliveList = scene.players.filter(p => p.alive);
+        aliveList.forEach(p => {
+            scores[p.pIndex] += 4;
+        });
+        updateInGameScoreboard(scene);
+
+        scene.time.delayedCall(500, () => {
+            scene.scene.start('ResultScene');
+        });
+    }
+
+    // -------------------------------------------------------------
+    // 關卡 1：熔岩避險
+    // -------------------------------------------------------------
+    function Stage1Scene() { Phaser.Scene.call(this, { key: 'Stage1Scene' }); }
+    Stage1Scene.prototype = Object.create(Phaser.Scene.prototype);
+    Stage1Scene.prototype.preload = function() { initTextures(this); };
+    Stage1Scene.prototype.create = function() {
+        initAnimations(this);
+        setupStageCommon(this);
+        createRichBackground(this);
+        createInGameScoreboard(this);
+
+        this.physics.world.bounds.setTo(0, -1000, 1280, 1800);
+        this.cameras.main.setBounds(0, 0, 1280, 720);
+        this.physics.world.gravity.y = 700;
+        this.stageTimer = 0;
+
+        this.platforms = this.physics.add.staticGroup();
+        this.platforms.create(220, 670, 'platform_neon').setScale(13, 0.8).refreshBody();
+        this.platforms.create(1060, 670, 'platform_neon').setScale(13, 0.8).refreshBody();
+        this.platforms.create(280, 510, 'platform_neon').setScale(11, 0.8).refreshBody();
+        this.platforms.create(1000, 510, 'platform_neon').setScale(11, 0.8).refreshBody();
+        this.platforms.create(480, 400, 'platform_neon').setScale(10, 0.8).refreshBody();
+        this.platforms.create(800, 400, 'platform_neon').setScale(10, 0.8).refreshBody();
+        this.platforms.create(640, 280, 'platform_neon').setScale(12, 0.8).refreshBody();
+        this.platforms.create(640, 580, 'platform_neon').setScale(14, 0.8).refreshBody();
+
+        this.players = [];
+        let spawnPos = [{x:180,y:570}, {x:260,y:570}, {x:1020,y:570}, {x:1100,y:570}];
+
+        for (let i = 1; i <= 4; i++) {
+            let p = this.physics.add.sprite(spawnPos[i-1].x, spawnPos[i-1].y, 'p' + i + '_walk_1');
+            p.pIndex = i; p.alive = true;
+            p.setCollideWorldBounds(true, 0, 0, false);
+            this.physics.add.collider(p, this.platforms);
+            p.hasShield = false;
+            p.shieldRing = null;
+            p.play('p' + i + '_run');
+            this.players.push(p);
+        }
+
+        this.physics.add.collider(this.players, this.players);
+
+        this.wasd = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' });
+        this.lavas = this.physics.add.group();
+        this.items = this.physics.add.group();
+
+        startStageBuffer(this, '關卡 1：熔岩避險', () => { 
+            this.isReady = true; 
+
+            this.time.addEvent({
+                delay: 400,
+                callback: () => {
+                    if (!this.isReady || this.isEnded) return;
+                    this.stageTimer += 0.4;
+                    let spawnChance = Math.min(0.9, 0.4 + (this.stageTimer * 0.03));
+                    if (Math.random() < spawnChance) {
+                        let lava = this.lavas.create(Phaser.Math.Between(100, 1180), 0, 'lava');
+                        let minSpeed = Math.min(500, 250 + (this.stageTimer * 15));
+                        let maxSpeed = Math.min(750, 450 + (this.stageTimer * 20));
+                        lava.setVelocityY(Phaser.Math.Between(minSpeed, maxSpeed));
+
+                        let trailEmitter = this.add.particles('particle_fire').createEmitter({
+                            speed: { min: 10, max: 40 },
+                            angle: { min: 240, max: 300 },
+                            scale: { start: 1.2, end: 0.1 },
+                            lifespan: 300,
+                            blendMode: 'ADD',
+                            frequency: 30
+                        });
+                        trailEmitter.startFollow(lava);
+                        lava.trailEmitter = trailEmitter;
+                    }
+                },
+                loop: true
+            });
+
+            this.time.addEvent({
+                delay: 4500,
+                callback: () => {
+                    if (!this.isReady || this.isEnded) return;
+                    let coords = [{x: 280, y: 470}, {x: 1000, y: 470}, {x: 640, y: 240}, {x: 640, y: 540}];
+                    let spot = coords[Phaser.Math.Between(0, coords.length - 1)];
+                    let shieldItem = this.items.create(spot.x, spot.y, 'item_shield');
+                    shieldItem.itemType = 'item_shield';
+                    shieldItem.body.setAllowGravity(false);
+                    shieldItem.setVelocity(0, 0);
+
+                    createCoolItemEffect(this, shieldItem, 0x00ffff);
+
+                    this.tweens.add({
+                        targets: shieldItem,
+                        y: spot.y - 12,
+                        duration: 800,
+                        yoyo: true,
+                        repeat: -1,
+                        ease: 'Sine.easeInOut'
+                    });
+                },
+                loop: true
+            });
+        });
+
+        this.players.forEach(p => {
+            this.physics.add.overlap(p, this.items, (player, item) => {
+                if (!player.alive || this.isEnded) return;
+                player.hasShield = true;
+                player.setTint(0x3498db);
+
+                destroyCoolItemEffect(item);
+
+                if (player.shieldRing) player.shieldRing.destroy();
+                player.shieldRing = this.add.circle(player.x, player.y, 24, 0x3498db, 0.4);
+
+                let emitter = this.add.particles('particle_shield').createEmitter({
+                    x: item.x, y: item.y,
+                    speed: { min: 80, max: 220 },
+                    angle: { min: 0, max: 360 },
+                    scale: { start: 1.5, end: 0 },
+                    lifespan: 500,
+                    quantity: 25
+                });
+                this.time.delayedCall(500, () => emitter.remove());
+
+                item.destroy();
+                playSound('powerup');
+            }, null, this);
+        });
+
+        this.players.forEach(p => {
+            this.physics.add.overlap(p, this.lavas, (player, lava) => {
+                if (!player.alive || !this.isReady || this.isEnded) return;
+                if (lava.trailEmitter) lava.trailEmitter.remove();
+                lava.destroy();
+                if (player.hasShield) {
+                    player.hasShield = false;
+                    player.clearTint();
+                    if (player.shieldRing) { player.shieldRing.destroy(); player.shieldRing = null; }
+                    playSound('beep');
+                } else {
+                    eliminatePlayer(this, player);
+                }
+            }, null, this);
+        });
+    };
+
+    Stage1Scene.prototype.update = function() {
+        if (!this.isReady || this.isEnded) return;
+        checkAlivePlayers(this);
+
+        this.lavas.getChildren().forEach(lava => {
+            if (lava.y > 730) {
+                if (lava.trailEmitter) lava.trailEmitter.remove();
+                lava.destroy();
+            }
+        });
+
+        this.items.getChildren().forEach(item => {
+            updateCoolItemPos(item);
+        });
+
+        this.players.forEach(p => {
+            if (p.shieldRing && p.alive) {
+                p.shieldRing.setPosition(p.x, p.y);
+            }
+            if (p.alive && p.y > 730) {
+                eliminatePlayer(this, p);
+            }
+        });
+
+        let p = this.players[myPlayerIndex - 1];
+        if (p && p.alive) {
+            if (this.wasd.left.isDown || mobileInput.left) {
+                p.setVelocityX(-260);
+                p.setFlipX(true);
+            } else if (this.wasd.right.isDown || mobileInput.right) {
+                p.setVelocityX(260);
+                p.setFlipX(false);
+            } else {
+                p.setVelocityX(0);
+            }
+
+            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) {
+                p.setVelocityY(-500);
+            }
+            mobileInput.jumpJustDown = false;
+        }
+    };
+
+    // -------------------------------------------------------------
+    // 關卡 2：鋸片生存擂台
+    // -------------------------------------------------------------
+    function Stage2Scene() { Phaser.Scene.call(this, { key: 'Stage2Scene' }); }
+    Stage2Scene.prototype = Object.create(Phaser.Scene.prototype);
+    Stage2Scene.prototype.preload = function() { initTextures(this); };
+    Stage2Scene.prototype.create = function() {
+        initAnimations(this);
+        setupStageCommon(this);
+        createRichBackground(this);
+        createInGameScoreboard(this);
+
+        this.physics.world.bounds.setTo(0, -1000, 1280, 1800);
+        this.cameras.main.setBounds(0, 0, 1280, 720);
+        this.physics.world.gravity.y = 700;
+
+        this.platformCoords = [
+            {x: 640, y: 590}, {x: 360, y: 450}, {x: 920, y: 450}, {x: 640, y: 320}
+        ];
+
+        this.platforms = this.physics.add.staticGroup();
+        this.platforms.create(640, 630, 'platform_neon').setScale(35, 0.8).refreshBody();
+        this.platforms.create(360, 490, 'platform_neon').setScale(13, 0.8).refreshBody();
+        this.platforms.create(920, 490, 'platform_neon').setScale(13, 0.8).refreshBody();
+        this.platforms.create(640, 360, 'platform_neon').setScale(16, 0.8).refreshBody();
+
+        this.players = [];
+        let positions = [320, 520, 760, 960];
+
+        for (let i = 1; i <= 4; i++) {
+            let p = this.physics.add.sprite(positions[i-1], 520, 'p' + i + '_walk_1');
+            p.pIndex = i; p.alive = true;
+            p.setCollideWorldBounds(true, 0, 0, false);
+            this.physics.add.collider(p, this.platforms);
+            p.hasShield = false;
+            p.shieldRing = null;
+            p.play('p' + i + '_run');
+            this.players.push(p);
+        }
+
+        this.physics.add.collider(this.players, this.players);
+
+        this.wasd = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' });
+        this.saws = this.physics.add.group();
+        this.items = this.physics.add.group();
+
+        this.initialSaw = this.saws.create(640, 100, 'saw');
+        this.initialSaw.setBounce(1, 1).setCollideWorldBounds(true);
+        this.initialSaw.body.setAllowGravity(false);
+        this.initialSaw.setAngularVelocity(400);
+
+        startStageBuffer(this, '關卡 2：鋸片生存擂台', () => {
+            this.isReady = true;
+            if (this.initialSaw) {
+                this.initialSaw.body.setAllowGravity(true);
+                this.initialSaw.setVelocity(Phaser.Math.Between(-280, 280), 180);
+            }
+
+            this.time.addEvent({
+                delay: 2000,
+                callback: () => {
+                    if (!this.isReady || this.isEnded) return;
+                    let rx = Phaser.Math.Between(200, 1080);
+                    let newSaw = this.saws.create(rx, 50, 'saw');
+                    newSaw.setBounce(1, 1).setCollideWorldBounds(true);
+                    newSaw.setVelocity(Phaser.Math.Between(-300, 300), 200);
+                    newSaw.setAngularVelocity(Phaser.Math.Between(300, 600));
+                    playSound('beep');
+                },
+                loop: true
+            });
+
+            this.time.addEvent({
+                delay: 4500,
+                callback: () => {
+                    if (!this.isReady || this.isEnded) return;
+                    let spot = this.platformCoords[Phaser.Math.Between(0, this.platformCoords.length - 1)];
+                    let shieldItem = this.items.create(spot.x, spot.y - 30, 'item_shield');
+                    shieldItem.itemType = 'item_shield';
+                    shieldItem.body.setAllowGravity(false);
+                    shieldItem.setVelocity(0, 0);
+
+                    createCoolItemEffect(this, shieldItem, 0x00ffff);
+
+                    this.tweens.add({
+                        targets: shieldItem,
+                        y: spot.y - 42,
+                        duration: 800,
+                        yoyo: true,
+                        repeat: -1,
+                        ease: 'Sine.easeInOut'
+                    });
+                },
+                loop: true
+            });
+        });
+
+        this.players.forEach(p => {
+            this.physics.add.overlap(p, this.items, (player, item) => {
+                if (!player.alive || this.isEnded) return;
+                player.hasShield = true;
+                player.setTint(0x3498db);
+
+                destroyCoolItemEffect(item);
+
+                if (player.shieldRing) player.shieldRing.destroy();
+                player.shieldRing = this.add.circle(player.x, player.y, 24, 0x3498db, 0.4);
+
+                let emitter = this.add.particles('particle_shield').createEmitter({
+                    x: item.x, y: item.y,
+                    speed: { min: 80, max: 220 },
+                    angle: { min: 0, max: 360 },
+                    scale: { start: 1.5, end: 0 },
+                    lifespan: 500,
+                    quantity: 25
+                });
+                this.time.delayedCall(500, () => emitter.remove());
+
+                item.destroy();
+                playSound('powerup');
+            }, null, this);
+        });
+
+        this.players.forEach(p => {
+            this.physics.add.overlap(p, this.saws, (player, saw) => {
+                if (!player.alive || !this.isReady || this.isEnded) return;
+                if (player.hasShield) {
+                    player.hasShield = false;
+                    player.clearTint();
+                    if (player.shieldRing) { player.shieldRing.destroy(); player.shieldRing = null; }
+                    saw.destroy();
+                    playSound('beep');
+                } else {
+                    eliminatePlayer(this, player);
+                }
+            }, null, this);
+        });
+    };
+
+    Stage2Scene.prototype.update = function() {
+        if (!this.isReady || this.isEnded) return;
+        checkAlivePlayers(this);
+
+        this.items.getChildren().forEach(item => {
+            updateCoolItemPos(item);
+        });
+
+        this.players.forEach(p => {
+            if (p.shieldRing && p.alive) {
+                p.shieldRing.setPosition(p.x, p.y);
+            }
+            if (p.alive && p.y > 730) {
+                eliminatePlayer(this, p);
+            }
+        });
+
+        let p = this.players[myPlayerIndex - 1];
+        if (p && p.alive) {
+            if (this.wasd.left.isDown || mobileInput.left) {
+                p.setVelocityX(-260);
+                p.setFlipX(true);
+            } else if (this.wasd.right.isDown || mobileInput.right) {
+                p.setVelocityX(260);
+                p.setFlipX(false);
+            } else {
+                p.setVelocityX(0);
+            }
+
+            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) {
+                p.setVelocityY(-500);
+            }
+            mobileInput.jumpJustDown = false;
+        }
+    };
+
+    // -------------------------------------------------------------
+    // 關卡 3：雷射彈幕大亂鬥
+    // -------------------------------------------------------------
+    function Stage3Scene() { Phaser.Scene.call(this, { key: 'Stage3Scene' }); }
+    Stage3Scene.prototype = Object.create(Phaser.Scene.prototype);
+    Stage3Scene.prototype.preload = function() { initTextures(this); };
+    Stage3Scene.prototype.create = function() {
+        initAnimations(this);
+        setupStageCommon(this);
+        createRichBackground(this);
+        createInGameScoreboard(this);
+
+        this.physics.world.bounds.setTo(0, -1000, 1280, 1800);
+        this.cameras.main.setBounds(0, 0, 1280, 720);
+        this.physics.world.gravity.y = 800;
+
+        this.platformCoords = [
+            {x: 320, y: 480}, {x: 960, y: 480},
+            {x: 640, y: 340}, {x: 260, y: 200}, {x: 1020, y: 200}
+        ];
+
+        this.platforms = this.physics.add.staticGroup();
+        this.platforms.create(640, 700, 'platform_neon').setScale(45, 1).refreshBody();
+        this.platforms.create(320, 520, 'platform_neon').setScale(15, 0.8).refreshBody();
+        this.platforms.create(960, 520, 'platform_neon').setScale(15, 0.8).refreshBody();
+        this.platforms.create(640, 380, 'platform_neon').setScale(20, 0.8).refreshBody();
+        this.platforms.create(260, 240, 'platform_neon').setScale(11, 0.8).refreshBody();
+        this.platforms.create(1020, 240, 'platform_neon').setScale(11, 0.8).refreshBody();
+
+        this.players = [];
+        let spawnPos = [{x:220,y:620}, {x:1060,y:620}, {x:260,y:150}, {x:1020,y:150}];
+
+        for (let i = 1; i <= 4; i++) {
+            let p = this.physics.add.sprite(spawnPos[i-1].x, spawnPos[i-1].y, 'p' + i + '_walk_1');
+            p.pIndex = i; p.alive = true;
+            p.setCollideWorldBounds(true, 0, 0, false);
+            this.physics.add.collider(p, this.platforms);
+            p.moveSpeed = 280;
+            p.fireCooldown = 300;
+            p.lastFired = 0;
+            p.hasShield = false;
+            p.shieldRing = null;
+            p.weaponType = 'normal';
+            p.weaponTimer = 0;
+            p.canDoubleJump = false;
+            p.play('p' + i + '_run');
+
+            p.statusText = this.add.text(p.x, p.y - 45, '', { fontFamily: CUTE_FONT_FAMILY, fontSize: '14px', fill: '#f1c40f', fontWeight: '900', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5);
+            p.gunSprite = this.add.sprite(p.x, p.y, 'gun').setOrigin(0.3, 0.5);
+
+            this.players.push(p);
+        }
+
+        this.physics.add.collider(this.players, this.players);
+
+        this.wasd = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' });
+        this.bullets = this.physics.add.group();
+        this.items = this.physics.add.group();
+
+        this.physics.add.collider(this.bullets, this.platforms, (bullet) => {
+            bullet.destroy();
+        });
+
+        startStageBuffer(this, '關卡 3：多平台雷射大亂鬥', () => { 
+            this.isReady = true; 
+
+            this.time.addEvent({
+                delay: 4000,
+                callback: () => {
+                    if (!this.isReady || this.isEnded) return;
+                    let spot = this.platformCoords[Phaser.Math.Between(0, this.platformCoords.length - 1)];
+                    let types = ['item_shield', 'item_rapid', 'item_spread'];
+                    let chosenType = types[Phaser.Math.Between(0, types.length - 1)];
+
+                    let item = this.items.create(spot.x, spot.y - 30, chosenType);
+                    item.itemType = chosenType;
+                    item.body.setAllowGravity(false);
+                    item.setVelocity(0, 0);
+
+                    let glowColor = chosenType === 'item_shield' ? 0x00ffff : (chosenType === 'item_rapid' ? 0xf1c40f : 0x2ecc71);
+                    
+                    createCoolItemEffect(this, item, glowColor);
+
+                    this.tweens.add({
+                        targets: item,
+                        y: spot.y - 42,
+                        duration: 800,
+                        yoyo: true,
+                        repeat: -1,
+                        ease: 'Sine.easeInOut'
+                    });
+                },
+                loop: true
+            });
+        });
+
+        this.players.forEach(p => {
+            this.physics.add.overlap(p, this.items, (player, item) => {
+                if (!player.alive || this.isEnded) return;
+                playSound('powerup');
+
+                destroyCoolItemEffect(item);
+
+                let particleKey = 'particle_shield';
+                if (item.texture.key === 'item_shield') {
+                    player.hasShield = true;
+                    player.setTint(0x3498db);
+                    if (player.shieldRing) player.shieldRing.destroy();
+                    player.shieldRing = this.add.circle(player.x, player.y, 24, 0x3498db, 0.4);
+                } else if (item.texture.key === 'item_rapid') {
+                    player.weaponType = 'rapid';
+                    player.fireCooldown = 120;
+                    player.weaponTimer = this.time.now + 5000;
+                    player.setTint(0xf1c40f);
+                    particleKey = 'particle_fire';
+                } else if (item.texture.key === 'item_spread') {
+                    player.weaponType = 'spread';
+                    player.fireCooldown = 400;
+                    player.weaponTimer = this.time.now + 5000;
+                    player.setTint(0x2ecc71);
+                    particleKey = 'particle_spread';
+                }
+
+                let emitter = this.add.particles(particleKey).createEmitter({
+                    x: item.x, y: item.y,
+                    speed: { min: 80, max: 220 },
+                    angle: { min: 0, max: 360 },
+                    scale: { start: 1.5, end: 0 },
+                    lifespan: 500,
+                    quantity: 25
+                });
+                this.time.delayedCall(500, () => emitter.remove());
+
+                item.destroy();
+            }, null, this);
+        });
+
+        const fireBullet = (startX, startY, angle, speed, ownerIdx) => {
+            let b = this.bullets.create(startX, startY, 'bullet');
+            this.physics.velocityFromRotation(angle, speed, b.body.velocity);
+            b.ownerIndex = ownerIdx;
+            b.startX = startX;
+            b.startY = startY;
+            b.maxRange = 600;
+        };
+
+        this.input.on('pointerdown', (pointer) => {
+            if (!this.isReady || this.isEnded) return;
+            let p = this.players[myPlayerIndex - 1];
+            if (p && p.alive) {
+                let now = this.time.now;
+                if (now - p.lastFired < p.fireCooldown) return;
+                p.lastFired = now;
+
+                let worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+                let angle = Phaser.Math.Angle.Between(p.x, p.y, worldPoint.x, worldPoint.y);
+
+                playSound('shoot');
+
+                if (p.weaponType === 'spread') {
+                    [-0.25, 0, 0.25].forEach(offset => {
+                        fireBullet(p.x, p.y, angle + offset, 700, p.pIndex);
+                    });
+                } else {
+                    fireBullet(p.x, p.y, angle, 750, p.pIndex);
+                }
+            }
+        });
+
+        this.players.forEach(target => {
+            this.physics.add.overlap(target, this.bullets, (t, b) => {
+                if (!t.alive || !this.isReady || this.isEnded) return;
+                if (b.ownerIndex !== t.pIndex) {
+                    b.destroy();
+                    if (t.hasShield) {
+                        t.hasShield = false;
+                        t.clearTint();
+                        if (t.shieldRing) { t.shieldRing.destroy(); t.shieldRing = null; }
+                        playSound('beep');
+                    } else {
+                        eliminatePlayer(this, t);
+                    }
+                }
+            }, null, this);
+        });
+    };
+
+    Stage3Scene.prototype.update = function(time, delta) {
+        if (!this.isReady || this.isEnded) return;
+        checkAlivePlayers(this);
+
+        this.items.getChildren().forEach(item => {
+            updateCoolItemPos(item);
+        });
+
+        this.bullets.getChildren().forEach(b => {
+            if (b.active) {
+                let dist = Phaser.Math.Distance.Between(b.startX, b.startY, b.x, b.y);
+                if (dist > b.maxRange) {
+                    b.destroy();
+                }
+            }
+        });
+
+        this.players.forEach(p => {
+            if (!p.alive) return;
+
+            if (p.weaponType !== 'normal' && time > p.weaponTimer) {
+                p.weaponType = 'normal';
+                p.fireCooldown = 300;
+                if (!p.hasShield) p.clearTint();
+            }
+
+            if (p.weaponType !== 'normal') {
+                let timeLeft = Math.ceil((p.weaponTimer - time) / 1000);
+                let weaponName = p.weaponType === 'spread' ? '散彈' : '連發';
+                p.statusText.setPosition(p.x, p.y - 45).setText(`${weaponName} ${timeLeft}s`).setVisible(true);
+            } else {
+                p.statusText.setVisible(false);
+            }
+
+            if (p.shieldRing) {
+                p.shieldRing.setPosition(p.x, p.y);
+            }
+
+            if (p.gunSprite) {
+                p.gunSprite.setPosition(p.x, p.y + 2);
+                if (p.pIndex === myPlayerIndex) {
+                    let pointer = this.input.activePointer;
+                    let worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+                    let angle = Phaser.Math.Angle.Between(p.x, p.y, worldPoint.x, worldPoint.y);
+                    p.gunSprite.setRotation(angle);
+                    if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
+                        p.gunSprite.setFlipY(true);
+                    } else {
+                        p.gunSprite.setFlipY(false);
+                    }
+                } else {
+                    p.gunSprite.setRotation(0);
+                }
+            }
+            if (p.alive && p.y > 730) {
+                eliminatePlayer(this, p);
+            }
+        });
+
+        let p = this.players[myPlayerIndex - 1];
+        if (p && p.alive) {
+            if (this.wasd.left.isDown || mobileInput.left) {
+                p.setVelocityX(-p.moveSpeed);
+                p.setFlipX(true);
+            } else if (this.wasd.right.isDown || mobileInput.right) {
+                p.setVelocityX(p.moveSpeed);
+                p.setFlipX(false);
+            } else {
+                p.setVelocityX(0);
+            }
+
+            if (p.body.touching.down) {
+                p.canDoubleJump = true;
+            }
+
+            if (Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) {
+                if (p.body.touching.down) {
+                    p.setVelocityY(-520);
+                } else if (p.canDoubleJump) {
+                    p.setVelocityY(-480);
+                    p.canDoubleJump = false;
+                    playSound('beep');
+                }
+            }
+            mobileInput.jumpJustDown = false;
+        }
+    };
+
+    // -------------------------------------------------------------
+    // 關卡 4：傳炸彈大亂鬥
+    // -------------------------------------------------------------
+    function Stage4Scene() { Phaser.Scene.call(this, { key: 'Stage4Scene' }); }
+    Stage4Scene.prototype = Object.create(Phaser.Scene.prototype);
+    Stage4Scene.prototype.preload = function() { initTextures(this); };
+    Stage4Scene.prototype.create = function() {
+        this.isReady = false;
+        this.isEnded = false;
+
+        createRichBackground(this);
+        createInGameScoreboard(this);
+
+        this.physics.world.bounds.setTo(0, -1000, 1280, 1800);
+        this.cameras.main.setBounds(0, 0, 1280, 720);
+        this.physics.world.gravity.y = 700;
+
+        this.platforms = this.physics.add.staticGroup();
+        this.platforms.create(640, 700, 'platform_neon').setScale(45, 1).refreshBody();
+        this.platforms.create(320, 540, 'platform_neon').setScale(15, 0.8).refreshBody();
+        this.platforms.create(960, 540, 'platform_neon').setScale(15, 0.8).refreshBody();
+        this.platforms.create(640, 380, 'platform_neon').setScale(20, 0.8).refreshBody();
+        this.platforms.create(260, 220, 'platform_neon').setScale(11, 0.8).refreshBody();
+        this.platforms.create(1020, 220, 'platform_neon').setScale(11, 0.8).refreshBody();
+
+        this.players = [];
+        let spawnPos = [{x:220,y:620}, {x:1060,y:620}, {x:260,y:150}, {x:1020,y:150}];
+
+        for (let i = 1; i <= 4; i++) {
+            let p = this.physics.add.sprite(spawnPos[i-1].x, spawnPos[i-1].y, 'p' + i + '_walk_1');
+            p.pIndex = i; p.alive = true; p.hasBomb = false; p.stunnedUntil = 0;
+            p.setCollideWorldBounds(true, 0, 0, false);
+            this.physics.add.collider(p, this.platforms);
+            p.play('p' + i + '_run');
+            this.players.push(p);
+        }
+
+        this.physics.add.collider(this.players, this.players);
+
+        this.wasd = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' });
+        
+        this.bombSprite = this.add.sprite(0, 0, 'bomb').setScale(1.2).setVisible(false);
+        this.bombText = this.add.text(0, -30, '15', { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ff0000', fontWeight: '900', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setVisible(false);
+        this.starSprite = this.add.sprite(0, 0, 'star').setScale(1.5).setVisible(false);
+
+        this.lightningGraphics = this.add.graphics();
+
+        startStageBuffer(this, '關卡 4：傳炸彈大亂鬥', () => { 
+            this.isReady = true; 
+            this.bombTimer = 15;
+
+            let aliveList = this.players.filter(p => p.alive);
+            if (aliveList.length > 0) {
+                let initialOwner = aliveList[Phaser.Math.Between(0, aliveList.length - 1)];
+                initialOwner.hasBomb = true;
+            }
+
+            this.time.addEvent({
+                delay: 1000,
+                loop: true,
+                callback: () => {
+                    if (!this.isReady || this.isEnded) return;
+                    this.bombTimer--;
+                    playSound('beep');
+
+                    if (this.bombTimer <= 0) {
+                        let holder = this.players.find(p => p.hasBomb && p.alive);
+                        if (holder) {
+                            this.cameras.main.shake(300, 0.02);
+
+                            let emitter = this.add.particles('particle_fire').createEmitter({
+                                x: holder.x, y: holder.y,
+                                speed: { min: 100, max: 350 },
+                                angle: { min: 0, max: 360 },
+                                scale: { start: 1.5, end: 0.2 },
+                                lifespan: 500,
+                                gravityY: 200,
+                                quantity: 30
+                            });
+                            this.time.delayedCall(500, () => emitter.remove());
+
+                            holder.hasBomb = false;
+                            eliminatePlayer(this, holder);
+                        }
+
+                        let nextAlive = this.players.filter(p => p.alive);
+                        if (nextAlive.length > 1) {
+                            this.bombTimer = 15;
+                            let nextOwner = nextAlive[Phaser.Math.Between(0, nextAlive.length - 1)];
+                            nextOwner.hasBomb = true;
+                            playSound('powerup');
+                        }
+                    }
+                }
+            });
+        });
+
+        this.input.on('pointerdown', (pointer) => {
+            if (!this.isReady || this.isEnded) return;
+            let me = this.players[myPlayerIndex - 1];
+            if (!me || !me.alive || !me.hasBomb) return;
+
+            let worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+            let targets = this.players.filter(p => p.alive && p.pIndex !== me.pIndex);
+            
+            if (targets.length === 0) return;
+
+            let closestTarget = targets.reduce((prev, curr) => {
+                let dPrev = Phaser.Math.Distance.Between(worldPoint.x, worldPoint.y, prev.x, prev.y);
+                let dCurr = Phaser.Math.Distance.Between(worldPoint.x, worldPoint.y, curr.x, curr.y);
+                return dCurr < dPrev ? curr : prev;
+            });
+
+            this.lightningGraphics.clear();
+            this.lightningGraphics.lineStyle(4, 0x00ffff, 1);
+            this.lightningGraphics.beginPath();
+            this.lightningGraphics.moveTo(me.x, me.y);
+            let midX = (me.x + closestTarget.x) / 2 + Phaser.Math.Between(-30, 30);
+            let midY = (me.y + closestTarget.y) / 2 + Phaser.Math.Between(-30, 30);
+            this.lightningGraphics.lineTo(midX, midY);
+            this.lightningGraphics.lineTo(closestTarget.x, closestTarget.y);
+            this.lightningGraphics.strokePath();
+
+            this.time.delayedCall(150, () => {
+                this.lightningGraphics.clear();
+            });
+
+            me.hasBomb = false;
+            closestTarget.hasBomb = true;
+            closestTarget.stunnedUntil = this.time.now + 300;
+            playSound('powerup');
+        });
+    };
+
+    Stage4Scene.prototype.update = function(time, delta) {
+        if (!this.isReady || this.isEnded) return;
+
+        let holder = this.players.find(p => p.hasBomb && p.alive);
+        if (holder) {
+            this.bombSprite.setPosition(holder.x, holder.y - 35).setVisible(true);
+            this.bombText.setPosition(holder.x, holder.y - 55).setText(this.bombTimer.toString()).setVisible(true);
+        } else {
+            this.bombSprite.setVisible(false);
+            this.bombText.setVisible(false);
+        }
+
+        this.players.forEach(p => {
+            if (p.alive && p.y > 730) {
+                eliminatePlayer(this, p);
+            }
+        });
+
+        let localPlayer = this.players[myPlayerIndex - 1];
+        if (localPlayer && localPlayer.alive && time < localPlayer.stunnedUntil) {
+            localPlayer.setVelocityX(0);
+            localPlayer.setTint(0xe74c3c);
+            this.starSprite.setPosition(localPlayer.x, localPlayer.y - 45).setVisible(true);
+            this.starSprite.rotation += 0.2;
+            return;
+        } else if (localPlayer && localPlayer.alive) {
+            localPlayer.clearTint();
+            this.starSprite.setVisible(false);
+        }
+
+        let p = localPlayer;
+        if (p && p.alive) {
+            let currentSpeed = p.hasBomb ? 320 : 260;
+
+            if (this.wasd.left.isDown || mobileInput.left) {
+                p.setVelocityX(-currentSpeed);
+                p.setFlipX(true);
+            } else if (this.wasd.right.isDown || mobileInput.right) {
+                p.setVelocityX(currentSpeed);
+                p.setFlipX(false);
+            } else {
+                p.setVelocityX(0);
+            }
+
+            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) {
+                p.setVelocityY(-500);
+            }
+            mobileInput.jumpJustDown = false;
+        }
+    };
+
+    // -------------------------------------------------------------
+    // 關卡 5：高難度雷射牆夾擊障礙
+    // -------------------------------------------------------------
+    function Stage5Scene() { Phaser.Scene.call(this, { key: 'Stage5Scene' }); }
+    Stage5Scene.prototype = Object.create(Phaser.Scene.prototype);
+    Stage5Scene.prototype.preload = function() { initTextures(this); };
+    Stage5Scene.prototype.create = function() {
+        initAnimations(this);
+        setupStageCommon(this);
+        createRichBackground(this);
+        createInGameScoreboard(this);
+
+        this.physics.world.bounds.setTo(0, -1000, 1280, 1800);
+        this.cameras.main.setBounds(0, 0, 1280, 720);
+        this.physics.world.gravity.y = 700;
+
+        this.platforms = this.physics.add.staticGroup();
+        this.platforms.create(640, 680, 'platform_neon').setScale(40, 1).refreshBody();
+        this.platforms.create(320, 530, 'platform_neon').setScale(12, 0.8).refreshBody();
+        this.platforms.create(960, 530, 'platform_neon').setScale(12, 0.8).refreshBody();
+        this.platforms.create(640, 390, 'platform_neon').setScale(16, 0.8).refreshBody();
+        this.platforms.create(320, 250, 'platform_neon').setScale(12, 0.8).refreshBody();
+        this.platforms.create(960, 250, 'platform_neon').setScale(12, 0.8).refreshBody();
+
+        this.players = [];
+        let spawnPos = [{x:200,y:600}, {x:1080,y:600}, {x:260,y:480}, {x:1020,y:480}];
+
+        for (let i = 1; i <= 4; i++) {
+            let p = this.physics.add.sprite(spawnPos[i-1].x, spawnPos[i-1].y, 'p' + i + '_walk_1');
+            p.pIndex = i; p.alive = true;
+            p.setCollideWorldBounds(true, 0, 0, false);
+            this.physics.add.collider(p, this.platforms);
+            p.play('p' + i + '_run');
+            this.players.push(p);
+        }
+
+        this.physics.add.collider(this.players, this.players);
+
+        this.wasd = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' });
+        this.laserWalls = this.physics.add.group();
+
+        startStageBuffer(this, '關卡 5：高難度雷射穿透大賽', () => { 
+            this.isReady = true; 
+
+            this.time.addEvent({
+                delay: 2000,
+                callback: () => {
+                    if (!this.isReady || this.isEnded) return;
+                    let fromLeft = Math.random() < 0.5;
+                    let startX = fromLeft ? -60 : 1340;
+                    
+                    let heights = [180, 280, 380, 480, 580, 640];
+                    let posY = heights[Phaser.Math.Between(0, heights.length - 1)];
+
+                    let wall = this.laserWalls.create(startX, posY, 'laser_wall');
+                    wall.body.setAllowGravity(false);
+                    wall.setScale(1.8, 3.5);
+                    
+                    let speed = fromLeft ? 420 : -420;
+                    wall.setVelocityX(speed);
+                    playSound('beep');
+
+                    this.time.delayedCall(4000, () => {
+                        if (wall && wall.active) wall.destroy();
+                    });
+                },
+                loop: true
+            });
+        });
+    };
+
+    Stage5Scene.prototype.update = function() {
+        if (!this.isReady || this.isEnded) return;
+        checkAlivePlayers(this);
+
+        this.laserWalls.getChildren().forEach(wall => {
+            if (!wall.active) return;
+            this.players.forEach(p => {
+                if (!p.alive) return;
+                let dist = Phaser.Math.Distance.Between(p.x, p.y, wall.x, wall.y);
+                if (dist < 40) {
+                    eliminatePlayer(this, p);
+                }
+            });
+        });
+
+        this.players.forEach(p => {
+            if (p.alive && p.y > 730) {
+                eliminatePlayer(this, p);
+            }
+        });
+
+        let p = this.players[myPlayerIndex - 1];
+        if (p && p.alive) {
+            if (this.wasd.left.isDown || mobileInput.left) {
+                p.setVelocityX(-260);
+                p.setFlipX(true);
+            } else if (this.wasd.right.isDown || mobileInput.right) {
+                p.setVelocityX(260);
+                p.setFlipX(false);
+            } else {
+                p.setVelocityX(0);
+            }
+
+            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) {
+                p.setVelocityY(-500);
+            }
+            mobileInput.jumpJustDown = false;
+        }
+    };
+
+    // -------------------------------------------------------------
+    // 關卡 6：金幣大狂歡收集戰 (大小金錢/紙鈔與不同分數)
+    // -------------------------------------------------------------
+    function Stage6Scene() { Phaser.Scene.call(this, { key: 'Stage6Scene' }); }
+    Stage6Scene.prototype = Object.create(Phaser.Scene.prototype);
+    Stage6Scene.prototype.preload = function() { initTextures(this); };
+    Stage6Scene.prototype.create = function() {
+        this.isReady = false;
+        this.isEnded = false;
+
+        createRichBackground(this);
+        createInGameScoreboard(this);
+
+        this.physics.world.bounds.setTo(0, -1000, 1280, 1800);
+        this.cameras.main.setBounds(0, 0, 1280, 720);
+        this.physics.world.gravity.y = 700;
+
+        this.platforms = this.physics.add.staticGroup();
+        this.platforms.create(640, 680, 'platform_neon').setScale(40, 1).refreshBody();
+        this.platforms.create(320, 520, 'platform_neon').setScale(14, 0.8).refreshBody();
+        this.platforms.create(960, 520, 'platform_neon').setScale(14, 0.8).refreshBody();
+        this.platforms.create(640, 380, 'platform_neon').setScale(18, 0.8).refreshBody();
+        this.platforms.create(220, 240, 'platform_neon').setScale(10, 0.8).refreshBody();
+        this.platforms.create(1060, 240, 'platform_neon').setScale(10, 0.8).refreshBody();
+
+        this.players = [];
+        let spawnPos = [{x:200,y:600}, {x:1080,y:600}, {x:260,y:460}, {x:1020,y:460}];
+
+        for (let i = 1; i <= 4; i++) {
+            let p = this.physics.add.sprite(spawnPos[i-1].x, spawnPos[i-1].y, 'p' + i + '_walk_1');
+            p.pIndex = i; p.alive = true; p.coinsCollected = 0;
+            p.setCollideWorldBounds(true, 0, 0, false);
+            this.physics.add.collider(p, this.platforms);
+            p.play('p' + i + '_run');
+            this.players.push(p);
+        }
+
+        this.physics.add.collider(this.players, this.players);
+
+        this.wasd = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' });
+        this.coinsGroup = this.physics.add.group();
+
+        this.coinScoreText = this.add.text(640, 75, '小鈔票(1分) | 大金錢包(3分)', {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#2ecc71', fontWeight: '900', stroke: '#000', strokeThickness: 4
+        }).setOrigin(0.5);
+
+        startStageBuffer(this, '關卡 6：金幣大狂歡收集戰', () => { 
+            this.isReady = true; 
+
+            // 生成小鈔票
+            this.time.addEvent({
+                delay: 500,
+                callback: () => {
+                    if (!this.isReady || this.isEnded) return;
+                    let coin = this.coinsGroup.create(Phaser.Math.Between(100, 1180), 0, 'coin_small');
+                    coin.coinValue = 1;
+                    coin.setBounce(0.6);
+                    coin.setCollideWorldBounds(true);
+                    coin.setVelocity(Phaser.Math.Between(-120, 120), Phaser.Math.Between(100, 250));
+
+                    createCoolItemEffect(this, coin, 0x2ecc71);
+                },
+                loop: true
+            });
+
+            // 生成稀有大金錢包
+            this.time.addEvent({
+                delay: 2500,
+                callback: () => {
+                    if (!this.isReady || this.isEnded) return;
+                    let coin = this.coinsGroup.create(Phaser.Math.Between(150, 1130), 0, 'coin_big');
+                    coin.coinValue = 3;
+                    coin.setBounce(0.7);
+                    coin.setCollideWorldBounds(true);
+                    coin.setVelocity(Phaser.Math.Between(-180, 180), Phaser.Math.Between(150, 300));
+
+                    createCoolItemEffect(this, coin, 0xf1c40f);
+                },
+                loop: true
+            });
+
+            this.time.delayedCall(20000, () => {
+                if (!this.isEnded) {
+                    this.isEnded = true;
+                    let maxCoins = -1;
+                    this.players.forEach(p => {
+                        if (p.coinsCollected > maxCoins) maxCoins = p.coinsCollected;
+                    });
+
+                    this.players.forEach(p => {
+                        if (p.coinsCollected === maxCoins && maxCoins > 0) {
+                            scores[p.pIndex] += 5;
+                        } else {
+                            scores[p.pIndex] += p.coinsCollected;
+                        }
+                    });
+                    updateInGameScoreboard(this);
+
+                    this.scene.start('ResultScene');
+                }
+            });
+        });
+
+        this.players.forEach(p => {
+            this.physics.add.overlap(p, this.coinsGroup, (player, coin) => {
+                if (!player.alive || !this.isReady || this.isEnded) return;
+                
+                let val = coin.coinValue || 1;
+                destroyCoolItemEffect(coin);
+                coin.destroy();
+
+                player.coinsCollected += val;
+                playSound('powerup');
+            }, null, this);
+        });
+    };
+
+    Stage6Scene.prototype.update = function() {
+        if (!this.isReady || this.isEnded) return;
+
+        this.coinsGroup.getChildren().forEach(coin => {
+            updateCoolItemPos(coin);
+        });
+
+        let textInfo = this.players.map(p => `P${p.pIndex}: ${p.coinsCollected}分`).join(' | ');
+        this.coinScoreText.setText(textInfo);
+
+        this.players.forEach(p => {
+            if (p.alive && p.y > 730) {
+                eliminatePlayer(this, p);
+            }
+        });
+
+        let p = this.players[myPlayerIndex - 1];
+        if (p && p.alive) {
+            if (this.wasd.left.isDown || mobileInput.left) {
+                p.setVelocityX(-260);
+                p.setFlipX(true);
+            } else if (this.wasd.right.isDown || mobileInput.right) {
+                p.setVelocityX(260);
+                p.setFlipX(false);
+            } else {
+                p.setVelocityX(0);
+            }
+
+            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) {
+                p.setVelocityY(-500);
+            }
+            mobileInput.jumpJustDown = false;
+        }
+    };
+
+    // -------------------------------------------------------------
+    // 結算與 30 分冠軍判定 Scene
+    // -------------------------------------------------------------
+    function ResultScene() { Phaser.Scene.call(this, { key: 'ResultScene' }); }
+    ResultScene.prototype = Object.create(Phaser.Scene.prototype);
+    ResultScene.prototype.create = function() {
+        toggleMobileControls(false); // 結算與回主畫面時隱藏虛擬按鈕
+        if (window.domRoomInput) window.domRoomInput.style.display = 'none';
+        initAnimations(this);
+        createRichBackground(this);
+
+        let maxScore = Math.max(...Object.values(scores));
+        let topPlayerIndices = [];
+        let topPlayerNames = [];
+
+        for (let i = 1; i <= 4; i++) {
+            if (scores[i] === maxScore) {
+                topPlayerIndices.push(i);
+                topPlayerNames.push(playerNames[i]);
+            }
+        }
+
+        let winnerIndex = null;
+        for (let i = 1; i <= 4; i++) {
+            if (scores[i] >= 30) winnerIndex = i;
+        }
+
+        if (winnerIndex) {
+            // 總冠軍誕生
+            let winnerSprite = this.add.sprite(640, 150, 'p' + winnerIndex + '_walk_1').setScale(3.5);
+            winnerSprite.play('p' + winnerIndex + '_run');
+
+            this.add.text(640, 260, '總冠軍誕生！', { fontFamily: CUTE_FONT_FAMILY, fontSize: '50px', fill: '#f1c40f', fontWeight: '900', stroke: '#000', strokeThickness: 7 }).setOrigin(0.5);
+            this.add.text(640, 340, '恭喜 ' + playerNames[winnerIndex] + ' 獲得最後總勝利！', { fontFamily: CUTE_FONT_FAMILY, fontSize: '28px', fill: '#ffffff', fontWeight: '800', stroke: '#000', strokeThickness: 5 }).setOrigin(0.5);
+            let restartBtn = this.add.rectangle(640, 450, 240, 55, 0x00b894).setInteractive({ useHandCursor: true });
+            this.add.text(640, 450, '重新開始比賽', { fontFamily: CUTE_FONT_FAMILY, fontSize: '24px', fill: '#fff', fontWeight: '900' }).setOrigin(0.5);
+
+            restartBtn.on('pointerdown', () => {
+                scores = { 1: 0, 2: 0, 3: 0, 4: 0 };
+                currentStageIndex = 1;
+                this.scene.start('TitleScene');
+            });
+        } else {
+            // 單關卡結算
+            this.add.text(640, 110, '關卡結算！', { fontFamily: CUTE_FONT_FAMILY, fontSize: '46px', fill: '#f1c40f', fontWeight: '900', stroke: '#000', strokeThickness: 7 }).setOrigin(0.5);
+
+            let totalTopCount = topPlayerIndices.length;
+            let startX = 640 - ((totalTopCount - 1) * 90) / 2;
+
+            topPlayerIndices.forEach((idx, order) => {
+                let posX = startX + (order * 90);
+                let chickenSprite = this.add.sprite(posX, 210, 'p' + idx + '_walk_1').setScale(2.8);
+                chickenSprite.play('p' + idx + '_run');
+            });
+
+            let leaderText = '目前最高分：' + topPlayerNames.join('、') + ' (' + maxScore + ' / 30 分)';
+            this.add.text(640, 300, leaderText, { fontFamily: CUTE_FONT_FAMILY, fontSize: '26px', fill: '#ffffff', fontWeight: '900', stroke: '#000', strokeThickness: 5 }).setOrigin(0.5);
+
+            let nextBtn = this.add.rectangle(640, 420, 240, 55, 0x0984e3).setInteractive({ useHandCursor: true });
+            this.add.text(640, 420, '進入下一關', { fontFamily: CUTE_FONT_FAMILY, fontSize: '26px', fill: '#fff', fontWeight: '900' }).setOrigin(0.5);
+
+            nextBtn.on('pointerdown', () => {
+                currentStageIndex = (currentStageIndex % 6) + 1; // 循環 6 個關卡
+                toggleMobileControls(true); // 重新顯示虛擬按鈕
+                this.scene.start('Stage' + currentStageIndex + 'Scene');
+            });
+        }
+    };
+</script>
+</body>
+</html>
