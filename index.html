@@ -6,10 +6,10 @@
     <title>小雞 4 人派對：多關卡積分大賽</title>
     <!-- Phaser 3 遊戲引擎 -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK (v8) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <!-- 導入可愛圓潤字體 (Fredoka + M PLUS Rounded 1c) -->
+    <!-- 導入可愛圓潤字體 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=M+PLUS+Rounded+1c:wght@700;800;900&display=swap" rel="stylesheet">
@@ -22,57 +22,57 @@
             font-family: 'Fredoka', 'M PLUS Rounded 1c', 'Comic Sans MS', sans-serif;
             touch-action: manipulation;
         }
-        body {
+        html, body {
             margin: 0;
-            padding: 15px;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
             background: linear-gradient(135deg, #1f1c2c 0%, #928dab 100%);
             color: #ffffff;
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
-            overflow-x: hidden;
+            justify-content: center;
+            overflow: hidden;
         }
 
-        /* 遊戲主畫面容器 1280x720 支援手機 RWD 自適應縮放 */
         #game-container {
             width: 1280px;
             height: 720px;
-            max-width: 100%;
-            border: 5px solid #ffffff;
-            border-radius: 24px;
+            max-width: 100vw;
+            max-height: 100vh;
+            border: 4px solid #ffffff;
+            border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.7);
             position: relative;
-            margin-bottom: 15px;
         }
 
-        /* 手機虛擬控制按鈕區 (預設隱藏，進入關卡自動顯示) */
+        /* 手機虛擬控制按鈕 */
         #mobile-controls {
             display: none;
             width: 1280px;
             max-width: 100%;
             justify-content: space-between;
-            padding: 10px 20px;
-            margin-top: 5px;
+            padding: 5px 20px;
         }
         .ctrl-group {
             display: flex;
             gap: 15px;
         }
         .m-btn {
-            width: 75px;
-            height: 75px;
+            width: 65px;
+            height: 65px;
             background: rgba(255, 255, 255, 0.25);
             border: 3px solid #ffffff;
             border-radius: 50%;
-            font-size: 24px;
+            font-size: 22px;
             color: #ffffff;
             font-weight: 900;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
             cursor: pointer;
         }
         .m-btn:active {
@@ -80,18 +80,87 @@
             transform: scale(0.92);
         }
 
-        /* 隱藏的 DOM 排行榜 */
-        #scoreboard {
-            display: none !important;
+        /* 玩家登入彈窗 */
+        #login-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 15, 26, 0.92);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+        .login-card {
+            background: rgba(30, 30, 46, 0.95);
+            border: 4px solid #ff7675;
+            border-radius: 20px;
+            padding: 25px 35px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            width: 400px;
+            max-width: 90%;
+        }
+        .login-card h2 {
+            margin-top: 0;
+            color: #f1c40f;
+            font-size: 26px;
+            margin-bottom: 15px;
+        }
+        .login-input {
+            width: 100%;
+            height: 44px;
+            background: #2d3436;
+            border: 3px solid #dfe6e9;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 15px;
+            outline: none;
+        }
+        .login-input:focus {
+            border-color: #00b894;
+        }
+        .login-btn {
+            width: 100%;
+            height: 46px;
+            background: #00b894;
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 18px;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,184,148,0.4);
+            transition: 0.2s;
+        }
+        .login-btn:hover {
+            background: #55efc4;
+            transform: translateY(-2px);
         }
     </style>
 </head>
 <body>
 
     <!-- 遊戲主畫面容器 -->
-    <div id="game-container"></div>
+    <div id="game-container">
+        <!-- 玩家暱稱登入遮罩 -->
+        <div id="login-overlay">
+            <div class="login-card">
+                <h2>進入小雞派對</h2>
+                <input type="text" id="player-name-input" class="login-input" placeholder="請輸入你的玩家暱稱" maxlength="10">
+                <button class="login-btn" id="login-submit-btn">進入遊戲大廳</button>
+            </div>
+        </div>
+    </div>
 
-    <!-- 手機專用虛擬控制面板 -->
+    <!-- 手機虛擬控制按鈕 -->
     <div id="mobile-controls">
         <div class="ctrl-group">
             <div class="m-btn" id="btn-left">◀</div>
@@ -102,36 +171,66 @@
         </div>
     </div>
 
-    <!-- 隱藏的 DOM 排行榜 -->
-    <div id="scoreboard">
-        <div class="score-box p1-color">P1 白小雞: <span id="score-p1">0</span> 分</div>
-        <div class="score-box p2-color">P2 藍小雞: <span id="score-p2">0</span> 分</div>
-        <div class="score-box p3-color">P3 綠小雞: <span id="score-p3">0</span> 分</div>
-        <div class="score-box p4-color">P4 粉小雞: <span id="score-p4">0</span> 分</div>
-    </div>
-
 <script>
-    // 可愛字體樣式設定 (供 Phaser 內部使用)
+    // -------------------------------------------------------------
+    // Firebase 即時資料庫設定
+    // -------------------------------------------------------------
+    const firebaseConfig = {
+        databaseURL: "https://fir-config-9fe52-default-rtdb.asia-southeast1.firebasedatabase.app"
+    };
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
+
     const CUTE_FONT_FAMILY = "'M PLUS Rounded 1c', 'Fredoka', 'Comic Sans MS', sans-serif";
 
     // -------------------------------------------------------------
-    // 全域分數與遊戲狀態變數
+    // 全域變數
     // -------------------------------------------------------------
     let scores = { 1: 0, 2: 0, 3: 0, 4: 0 };
     let currentStageIndex = 1;
     
-    let joinedPlayers = { 1: true, 2: false, 3: false, 4: false };
+    let joinedPlayers = { 1: false, 2: false, 3: false, 4: false };
     let readyStatus = { 1: false, 2: false, 3: false, 4: false };
 
-    const playerNames = {
+    let playerNames = {
         1: 'P1 白小雞',
         2: 'P2 藍小雞',
         3: 'P3 綠小雞',
         4: 'P4 粉小雞'
     };
 
-    // 手機觸控按鈕狀態追蹤
+    let roomId = null;
+    let myId = 'player_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    let myPlayerIndex = 1;
+    let myNickname = '玩家';
+    let isHost = false;
+    let roomRef = null;
+    let aiPlayers = {}; 
+
     let mobileInput = { left: false, right: false, jump: false, jumpJustDown: false };
+
+    // -------------------------------------------------------------
+    // 網頁載入與登入邏輯
+    // -------------------------------------------------------------
+    window.addEventListener('DOMContentLoaded', () => {
+        const loginBtn = document.getElementById('login-submit-btn');
+        const nameInput = document.getElementById('player-name-input');
+        const overlay = document.getElementById('login-overlay');
+
+        nameInput.value = '小雞' + Math.floor(Math.random() * 899 + 100);
+
+        loginBtn.addEventListener('click', () => {
+            let val = nameInput.value.trim();
+            if (val.length > 0) {
+                myNickname = val;
+            }
+            overlay.style.display = 'none';
+        });
+
+        setupMobileButtonListeners();
+    });
 
     function setupMobileButtonListeners() {
         const bLeft = document.getElementById('btn-left');
@@ -152,7 +251,6 @@
         bindTouch(bRight, 'right');
         bindTouch(bJump, 'jump');
     }
-    window.addEventListener('DOMContentLoaded', setupMobileButtonListeners);
 
     function toggleMobileControls(show) {
         let mc = document.getElementById('mobile-controls');
@@ -207,7 +305,7 @@
     }
 
     // -------------------------------------------------------------
-    // 背景豐富化畫面 (星空 + 科技網格)
+    // 背景畫面
     // -------------------------------------------------------------
     function createRichBackground(scene) {
         let bg = scene.add.graphics();
@@ -221,23 +319,10 @@
         for (let y = 0; y <= 720; y += 40) {
             bg.beginPath(); bg.moveTo(0, y); bg.lineTo(1280, y); bg.strokePath();
         }
-
-        for (let i = 0; i < 40; i++) {
-            let sx = Phaser.Math.Between(0, 1280);
-            let sy = Phaser.Math.Between(0, 720);
-            let star = scene.add.circle(sx, sy, Phaser.Math.FloatBetween(0.8, 2), 0xffffff, Phaser.Math.FloatBetween(0.2, 0.8));
-            scene.tweens.add({
-                targets: star,
-                alpha: 0.1,
-                duration: Phaser.Math.Between(1000, 3000),
-                yoyo: true,
-                repeat: -1
-            });
-        }
     }
 
     // -------------------------------------------------------------
-    // 遊戲內建頂部計分板渲染函數
+    // 遊戲內計分板
     // -------------------------------------------------------------
     function createInGameScoreboard(scene) {
         let barBg = scene.add.graphics();
@@ -248,25 +333,25 @@
         barBg.setScrollFactor(0);
         barBg.setDepth(100);
 
-        let s1 = scene.add.text(180, 33, `P1 白小雞: ${scores[1]} 分`, { fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
-        let s2 = scene.add.text(470, 33, `P2 藍小雞: ${scores[2]} 分`, { fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#74b9ff', fontWeight: '900' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
-        let s3 = scene.add.text(770, 33, `P3 綠小雞: ${scores[3]} 分`, { fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#55efc4', fontWeight: '900' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
-        let s4 = scene.add.text(1060, 33, `P4 粉小雞: ${scores[4]} 分`, { fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#ff7675', fontWeight: '900' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+        let s1 = scene.add.text(180, 33, `${playerNames[1]}: ${scores[1]} 分`, { fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+        let s2 = scene.add.text(470, 33, `${playerNames[2]}: ${scores[2]} 分`, { fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#74b9ff', fontWeight: '900' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+        let s3 = scene.add.text(770, 33, `${playerNames[3]}: ${scores[3]} 分`, { fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#55efc4', fontWeight: '900' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
+        let s4 = scene.add.text(1060, 33, `${playerNames[4]}: ${scores[4]} 分`, { fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#ff7675', fontWeight: '900' }).setOrigin(0.5).setScrollFactor(0).setDepth(101);
 
         scene.scoreTexts = { 1: s1, 2: s2, 3: s3, 4: s4 };
     }
 
     function updateInGameScoreboard(scene) {
         if (scene.scoreTexts) {
-            scene.scoreTexts[1].setText(`P1 白小雞: ${scores[1]} 分`);
-            scene.scoreTexts[2].setText(`P2 藍小雞: ${scores[2]} 分`);
-            scene.scoreTexts[3].setText(`P3 綠小雞: ${scores[3]} 分`);
-            scene.scoreTexts[4].setText(`P4 粉小雞: ${scores[4]} 分`);
+            scene.scoreTexts[1].setText(`${playerNames[1]}: ${scores[1]} 分`);
+            scene.scoreTexts[2].setText(`${playerNames[2]}: ${scores[2]} 分`);
+            scene.scoreTexts[3].setText(`${playerNames[3]}: ${scores[3]} 分`);
+            scene.scoreTexts[4].setText(`${playerNames[4]}: ${scores[4]} 分`);
         }
     }
 
     // -------------------------------------------------------------
-    // 酷炫道具特效生成函數
+    // 道具特效
     // -------------------------------------------------------------
     function createCoolItemEffect(scene, item, colorHex) {
         let ringG = scene.add.graphics();
@@ -303,15 +388,7 @@
     }
 
     // -------------------------------------------------------------
-    // 1. 房間與連線變數
-    // -------------------------------------------------------------
-    let roomId = null;
-    let myId = 'player_' + Math.floor(Math.random() * 10000);
-    let myPlayerIndex = 1;
-    let isHost = false;
-
-    // -------------------------------------------------------------
-    // 2. 精緻材質造型生成
+    // 材質與貼圖初始化
     // -------------------------------------------------------------
     function initTextures(scene) {
         if (scene.textures.exists('p1_walk_1')) return;
@@ -328,53 +405,42 @@
             drawCuteChicken(g, c.body, c.comb, c.belly, 0);
             g.generateTexture(c.key + '_walk_1', 36, 36);
             g.clear();
-
             drawCuteChicken(g, c.body, c.comb, c.belly, 1);
             g.generateTexture(c.key + '_walk_2', 36, 36);
             g.clear();
         });
 
-        // 🔫 升級雷射槍造型
         g.fillStyle(0x34495e, 1); g.fillRect(8, 12, 16, 8);
         g.fillStyle(0xf1c40f, 1); g.fillRect(14, 10, 10, 4);
         g.fillStyle(0x00ffff, 1); g.fillCircle(24, 16, 3);
         g.generateTexture('gun', 36, 36); g.clear();
 
-        // 科技導光平台材質
         g.fillStyle(0x1a252f, 1); g.fillRect(0, 0, 32, 32);
         g.fillStyle(0x34495e, 1); g.fillRect(2, 2, 28, 28);
         g.fillStyle(0x00ffff, 0.8); g.fillRect(0, 0, 32, 4);
         g.generateTexture('platform_neon', 32, 32); g.clear();
 
-        // 🔥 熔岩特效塊
         g.fillStyle(0xe74c3c, 1); g.fillCircle(16, 16, 14);
         g.fillStyle(0xf39c12, 1); g.fillCircle(16, 16, 9);
         g.fillStyle(0xffffff, 0.9); g.fillCircle(16, 16, 4);
         g.generateTexture('lava', 32, 32); g.clear();
 
-        // ⚡ 超大雷射牆障礙材質
         g.fillStyle(0xff0055, 1); g.fillRect(0, 0, 50, 50);
         g.fillStyle(0xffffff, 1); g.fillRect(15, 0, 20, 50);
         g.generateTexture('laser_wall', 50, 50); g.clear();
 
-        // 💵 小鈔票造型 (美元綠色紙鈔風格)
-        g.fillStyle(0x27ae60, 1); g.fillRoundedRect(2, 6, 26, 16, 3);
-        g.fillStyle(0x2ecc71, 1); g.fillRoundedRect(4, 8, 22, 12, 2);
-        g.fillStyle(0xffffff, 0.9); g.fillRect(12, 11, 6, 6);
-        g.generateTexture('coin_small', 30, 28); g.clear();
+        g.fillStyle(0xf1c40f, 1); g.fillCircle(12, 12, 10);
+        g.fillStyle(0xffeaa7, 1); g.fillCircle(12, 12, 6);
+        g.fillStyle(0xffffff, 0.9); g.fillCircle(9, 9, 2);
+        g.generateTexture('coin_small', 24, 24); g.clear();
 
-        // 💵 大鈔票/金錢包造型 (厚疊鈔票風格)
-        g.fillStyle(0x1e8449, 1); g.fillRoundedRect(2, 4, 36, 24, 5);
-        g.fillStyle(0x27ae60, 1); g.fillRoundedRect(5, 7, 30, 18, 4);
-        g.fillStyle(0xf1c40f, 1); g.fillCircle(20, 16, 6);
-        g.fillStyle(0xffffff, 0.95); g.fillRect(18, 14, 4, 4);
-        g.generateTexture('coin_big', 40, 32); g.clear();
+        g.fillStyle(0xe67e22, 1); g.fillCircle(20, 20, 18);
+        g.fillStyle(0xf1c40f, 1); g.fillCircle(20, 20, 14);
+        g.fillStyle(0xffeaa7, 1); g.fillCircle(20, 20, 8);
+        g.fillStyle(0xffffff, 1); g.fillCircle(15, 15, 3);
+        g.generateTexture('coin_big', 40, 40); g.clear();
 
-        // 🪚 酷炫金屬血齒輪鋸子造型
-        let cx = 18, cy = 18;
-        let teeth = 8;
-        let outerR = 17, innerR = 11;
-        
+        let cx = 18, cy = 18, teeth = 8, outerR = 17, innerR = 11;
         g.fillStyle(0xc0392b, 1);
         g.beginPath();
         for (let i = 0; i < teeth; i++) {
@@ -387,34 +453,28 @@
         }
         g.closePath();
         g.fill();
-
         g.fillStyle(0x7f8c8d, 1); g.fillCircle(cx, cy, 10);
         g.fillStyle(0xbdc3c7, 1); g.fillCircle(cx, cy, 7);
         g.fillStyle(0x2c3e50, 1); g.fillCircle(cx, cy, 3);
         g.generateTexture('saw', 36, 36); g.clear();
 
-        // 雷射子彈
         g.fillStyle(0x00ffff, 1); g.fillCircle(6, 6, 5);
         g.fillStyle(0xffffff, 1); g.fillCircle(6, 6, 2);
         g.generateTexture('bullet', 12, 12); g.clear();
         
-        // 💣 炸彈道具造型
         g.fillStyle(0x222222, 1); g.fillCircle(16, 18, 12);
         g.fillStyle(0xe74c3c, 1); g.fillRect(14, 2, 4, 6);
         g.fillStyle(0xf1c40f, 1); g.fillCircle(16, 2, 3);
         g.generateTexture('bomb', 32, 32); g.clear();
 
-        // 💥 各色粒子紋理
         g.fillStyle(0xf1c40f, 1); g.fillCircle(4, 4, 4); g.generateTexture('particle_fire', 8, 8); g.clear();
         g.fillStyle(0x3498db, 1); g.fillCircle(4, 4, 4); g.generateTexture('particle_shield', 8, 8); g.clear();
         g.fillStyle(0x2ecc71, 1); g.fillCircle(4, 4, 4); g.generateTexture('particle_spread', 8, 8); g.clear();
         
-        // ⭐ 暈眩金星紋理
         g.fillStyle(0xf1c40f, 1);
         g.fillTriangle(6, 0, 8, 4, 12, 4); g.fillTriangle(6, 12, 8, 8, 12, 8);
         g.generateTexture('star', 12, 12); g.clear();
 
-        // 🛡️ 護盾道具外觀
         g.fillStyle(0x3498db, 1); g.fillCircle(16, 16, 12);
         g.fillStyle(0x00ffff, 0.7); g.fillCircle(16, 16, 8);
         g.fillStyle(0xffffff, 0.95); g.fillCircle(12, 12, 3);
@@ -437,30 +497,15 @@
     function drawCuteChicken(g, bodyColor, combColor, bellyColor, frame) {
         g.fillStyle(0xf39c12, 1);
         if (frame === 0) {
-            g.fillRect(10, 31, 3, 5);
-            g.fillRect(23, 29, 3, 5);
+            g.fillRect(10, 31, 3, 5); g.fillRect(23, 29, 3, 5);
         } else {
-            g.fillRect(13, 29, 3, 5);
-            g.fillRect(20, 31, 3, 5);
+            g.fillRect(13, 29, 3, 5); g.fillRect(20, 31, 3, 5);
         }
-
-        g.fillStyle(bodyColor, 1);
-        g.fillRoundedRect(4, 6, 28, 24, 10);
-
-        g.fillStyle(bellyColor, 0.7);
-        g.fillEllipse(18, 20, 16, 14);
-
-        g.fillStyle(combColor, 1);
-        g.fillCircle(15, 4, 4);
-        g.fillCircle(20, 5, 3.5);
-
-        g.fillStyle(0x111111, 1);
-        g.fillCircle(23, 13, 3);
-        g.fillStyle(0xffffff, 1);
-        g.fillCircle(24, 12, 1);
-
-        g.fillStyle(0xf1c40f, 1);
-        g.fillTriangle(28, 13, 34, 16, 28, 19);
+        g.fillStyle(bodyColor, 1); g.fillRoundedRect(4, 6, 28, 24, 10);
+        g.fillStyle(bellyColor, 0.7); g.fillEllipse(18, 20, 16, 14);
+        g.fillStyle(combColor, 1); g.fillCircle(15, 4, 4); g.fillCircle(20, 5, 3.5);
+        g.fillStyle(0x111111, 1); g.fillCircle(23, 13, 3);
+        g.fillStyle(0xf1c40f, 1); g.fillTriangle(28, 13, 34, 16, 28, 19);
     }
 
     function initAnimations(scene) {
@@ -468,18 +513,13 @@
             if (!scene.anims.exists(key + '_run')) {
                 scene.anims.create({
                     key: key + '_run',
-                    frames: [
-                        { key: key + '_walk_1' },
-                        { key: key + '_walk_2' }
-                    ],
-                    frameRate: 10,
-                    repeat: -1
+                    frames: [{ key: key + '_walk_1' }, { key: key + '_walk_2' }],
+                    frameRate: 10, repeat: -1
                 });
             }
         });
     }
 
-    // --- 3 秒倒數與緩衝抬頭顯示 ---
     function startStageBuffer(scene, stageTitle, onComplete) {
         let titleTxt = scene.add.text(640, 220, stageTitle, {
             fontFamily: CUTE_FONT_FAMILY, fontSize: '34px', fill: '#f1c40f', fontWeight: '900', stroke: '#000', strokeThickness: 6
@@ -493,8 +533,7 @@
 
         let count = 3;
         scene.time.addEvent({
-            delay: 1000,
-            repeat: 3,
+            delay: 1000, repeat: 3,
             callback: () => {
                 count--;
                 if (count > 0) {
@@ -513,7 +552,73 @@
     }
 
     // -------------------------------------------------------------
-    // 3. 遊戲場景設定 (Phaser Config)
+    // Firebase 即時同步連線監聽
+    // -------------------------------------------------------------
+    function setupFirebaseListeners(scene) {
+        if (!roomId) return;
+        roomRef = db.ref('rooms/' + roomId);
+
+        roomRef.child('players').on('value', (snapshot) => {
+            let data = snapshot.val();
+            joinedPlayers = { 1: false, 2: false, 3: false, 4: false };
+            readyStatus = { 1: false, 2: false, 3: false, 4: false };
+
+            if (data) {
+                Object.values(data).forEach(pData => {
+                    let idx = pData.index;
+                    if (idx >= 1 && idx <= 4) {
+                        joinedPlayers[idx] = true;
+                        readyStatus[idx] = pData.ready || false;
+                        if (pData.nickname) playerNames[idx] = pData.nickname;
+                    }
+                });
+            }
+            if (scene.scene.key === 'TitleScene') {
+                scene.scene.restart();
+            }
+        });
+
+        roomRef.child('state').on('value', (snapshot) => {
+            let state = snapshot.val();
+            if (state && state.currentStage && scene.scene.key === 'TitleScene') {
+                if (window.domRoomInput) window.domRoomInput.style.display = 'none';
+                toggleMobileControls(true);
+                currentStageIndex = state.currentStage;
+                scene.scene.start('Stage' + state.currentStage + 'Scene');
+            }
+        });
+
+        if (scene.scene.key.includes('Stage')) {
+            roomRef.child('pos').on('value', (snapshot) => {
+                let positions = snapshot.val();
+                if (positions && scene.players) {
+                    Object.keys(positions).forEach(idx => {
+                        let i = parseInt(idx);
+                        if (i !== myPlayerIndex && scene.players[i - 1]) {
+                            let remoteP = scene.players[i - 1];
+                            remoteP.setPosition(positions[i].x, positions[i].y);
+                            remoteP.setFlipX(positions[i].flipX);
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    function syncMyPosition(scene) {
+        if (!roomId || !scene.players || !scene.players[myPlayerIndex - 1]) return;
+        let p = scene.players[myPlayerIndex - 1];
+        if (p && p.alive) {
+            db.ref(`rooms/${roomId}/pos/${myPlayerIndex}`).set({
+                x: Math.round(p.x),
+                y: Math.round(p.y),
+                flipX: p.flipX
+            });
+        }
+    }
+
+    // -------------------------------------------------------------
+    // Phaser 遊戲引擎設定 (支援螢幕 Fit 自動縮放無滾輪)
     // -------------------------------------------------------------
     const config = {
         type: Phaser.AUTO,
@@ -534,13 +639,13 @@
     const game = new Phaser.Game(config);
 
     // -------------------------------------------------------------
-    // 獨立主畫面 Scene (TitleScene)
+    // 標題大廳畫面 (TitleScene)
     // -------------------------------------------------------------
     function TitleScene() { Phaser.Scene.call(this, { key: 'TitleScene' }); }
     TitleScene.prototype = Object.create(Phaser.Scene.prototype);
     TitleScene.prototype.preload = function() { initTextures(this); };
     TitleScene.prototype.create = function() {
-        toggleMobileControls(false); // 主畫面隱藏手機虛擬鍵
+        toggleMobileControls(false);
         initAnimations(this);
         createRichBackground(this);
 
@@ -548,22 +653,13 @@
             fontFamily: CUTE_FONT_FAMILY, fontSize: '40px', fill: '#ff7675', fontWeight: '900', stroke: '#fff', strokeThickness: 5
         }).setOrigin(0.5);
 
-        let leftDecoChicken = this.add.sprite(350, 45, 'p2_walk_1').setScale(1.6);
-        leftDecoChicken.play('p2_run');
-
-        let rightDecoChicken = this.add.sprite(930, 45, 'p3_walk_1').setScale(1.6);
-        rightDecoChicken.play('p3_run');
-
         this.add.text(640, 85, '目標獲得 30 分奪下總冠軍！', {
             fontFamily: CUTE_FONT_FAMILY, fontSize: '17px', fill: '#dfe6e9', fontWeight: '800', stroke: '#000', strokeThickness: 4
         }).setOrigin(0.5);
 
-        // ==========================================
-        // 【紅框左上角】派對房號與房號輸入區
-        // ==========================================
         this.add.text(125, 125, '派對房號：', { fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0, 0.5);
-        let roomStatusStr = roomId ? (roomId + (isHost ? ' (房主 P1)' : ' (成員 P2)')) : '未加入房間';
-        let roomBadge = this.add.rectangle(290, 125, 160, 32, 0xffffff).setStrokeStyle(2, 0xff7675);
+        let roomStatusStr = roomId ? (roomId + (isHost ? ' (房主)' : ` (P${myPlayerIndex})`)) : '未加入房間';
+        this.add.rectangle(290, 125, 160, 32, 0xffffff).setStrokeStyle(2, 0xff7675);
         this.add.text(290, 125, roomStatusStr, { fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#d63031', fontWeight: '900' }).setOrigin(0.5);
 
         this.add.text(785, 125, '房號:', { fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0, 0.5);
@@ -594,61 +690,53 @@
         updateInputPos();
         window.addEventListener('resize', updateInputPos);
 
-        // 4 個玩家選擇卡片
         let playerBoxes = [
-            { index: 1, name: 'P1 白小雞', color: 0xffffff, textColor: '#ffffff', key: 'p1', x: 230, y: 260 },
-            { index: 2, name: 'P2 藍小雞', color: 0x74b9ff, textColor: '#74b9ff', key: 'p2', x: 500, y: 260 },
-            { index: 3, name: 'P3 綠小雞', color: 0x55efc4, textColor: '#55efc4', key: 'p3', x: 770, y: 260 },
-            { index: 4, name: 'P4 粉小雞', color: 0xff7675, textColor: '#ff7675', key: 'p4', x: 1040, y: 260 }
+            { index: 1, name: playerNames[1], color: 0xffffff, textColor: '#ffffff', key: 'p1', x: 230, y: 260 },
+            { index: 2, name: playerNames[2], color: 0x74b9ff, textColor: '#74b9ff', key: 'p2', x: 500, y: 260 },
+            { index: 3, name: playerNames[3], color: 0x55efc4, textColor: '#55efc4', key: 'p3', x: 770, y: 260 },
+            { index: 4, name: playerNames[4], color: 0xff7675, textColor: '#ff7675', key: 'p4', x: 1040, y: 260 }
         ];
 
         playerBoxes.forEach(p => {
             this.add.rectangle(p.x, p.y, 230, 160, 0x2d3436, 0.9).setStrokeStyle(3, p.color);
-            
             if (joinedPlayers[p.index]) {
-                this.add.text(p.x, p.y - 52, p.name, {
-                    fontFamily: CUTE_FONT_FAMILY, fontSize: '17px', fill: p.textColor, fontWeight: '900'
-                }).setOrigin(0.5);
-
-                let chickenSprite = this.add.sprite(p.x, p.y - 10, p.key + '_walk_1');
-                chickenSprite.setScale(1.6);
+                this.add.text(p.x, p.y - 52, p.name, { fontFamily: CUTE_FONT_FAMILY, fontSize: '17px', fill: p.textColor, fontWeight: '900' }).setOrigin(0.5);
+                let chickenSprite = this.add.sprite(p.x, p.y - 10, p.key + '_walk_1').setScale(1.6);
                 chickenSprite.play(p.key + '_run');
 
                 let isReady = readyStatus[p.index];
-                let btnBgColor = isReady ? 0x00b894 : 0x636e72;
-                let btnTextStr = isReady ? '已準備就緒' : '點擊準備';
-
-                let readyBtn = this.add.rectangle(p.x, p.y + 40, 130, 30, btnBgColor).setInteractive({ useHandCursor: true });
-                this.add.text(p.x, p.y + 40, btnTextStr, {
-                    fontFamily: CUTE_FONT_FAMILY, fontSize: '12px', fill: '#ffffff', fontWeight: '900'
-                }).setOrigin(0.5);
+                let readyBtn = this.add.rectangle(p.x, p.y + 40, 130, 30, isReady ? 0x00b894 : 0x636e72).setInteractive({ useHandCursor: true });
+                this.add.text(p.x, p.y + 40, isReady ? '已準備就緒' : '點擊準備', { fontFamily: CUTE_FONT_FAMILY, fontSize: '12px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
 
                 readyBtn.on('pointerdown', () => {
                     if (p.index === myPlayerIndex) {
                         readyStatus[p.index] = !readyStatus[p.index];
+                        if (roomId) db.ref(`rooms/${roomId}/players/${myId}/ready`).set(readyStatus[p.index]);
                         playSound('beep');
                         this.scene.restart();
                     }
                 });
-
             } else {
-                this.add.text(p.x, p.y - 10, '等待玩家加入...', {
-                    fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#b2bec3', fontWeight: '700', fontStyle: 'italic'
-                }).setOrigin(0.5);
+                this.add.text(p.x, p.y - 10, '等待玩家加入...', { fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#b2bec3', fontWeight: '700' }).setOrigin(0.5);
             }
         });
 
-        // ==========================================
-        // 【控制按鈕區】排在開始按鈕上方
-        // ==========================================
         let createBtn = this.add.rectangle(640, 485, 340, 50, 0x0984e3).setInteractive({ useHandCursor: true });
         this.add.text(640, 485, '建立 4 人派對房', { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
         createBtn.on('pointerdown', () => {
             roomId = Math.floor(1000 + Math.random() * 9000).toString();
             isHost = true;
             myPlayerIndex = 1;
+            playerNames[1] = myNickname;
             joinedPlayers = { 1: true, 2: false, 3: false, 4: false };
-            readyStatus = { 1: false, 2: false, 3: false, 4: false };
+
+            db.ref(`rooms/${roomId}`).set({
+                players: {
+                    [myId]: { index: 1, nickname: myNickname, ready: false }
+                }
+            });
+
+            setupFirebaseListeners(this);
             playSound('powerup');
             this.scene.restart();
         });
@@ -660,12 +748,38 @@
             if (val.length === 4) {
                 roomId = val;
                 isHost = false;
-                myPlayerIndex = 2;
-                joinedPlayers = { 1: true, 2: true, 3: false, 4: false };
-                readyStatus = { 1: false, 2: false, 3: false, 4: false };
-                window.domRoomInput.style.display = 'none';
-                playSound('powerup');
-                this.scene.restart();
+
+                db.ref(`rooms/${roomId}`).once('value', (snapshot) => {
+                    let roomData = snapshot.val();
+                    if (!roomData) {
+                        alert('找不到此房間，請確認房號是否正確！');
+                        return;
+                    }
+
+                    let players = roomData.players || {};
+                    let takenIndices = Object.values(players).map(p => p.index);
+                    
+                    myPlayerIndex = 2;
+                    for (let i = 1; i <= 4; i++) {
+                        if (!takenIndices.includes(i)) {
+                            myPlayerIndex = i;
+                            break;
+                        }
+                    }
+
+                    playerNames[myPlayerIndex] = myNickname;
+
+                    db.ref(`rooms/${roomId}/players/${myId}`).set({
+                        index: myPlayerIndex,
+                        nickname: myNickname,
+                        ready: false
+                    });
+
+                    setupFirebaseListeners(this);
+                    window.domRoomInput.style.display = 'none';
+                    playSound('powerup');
+                    this.scene.restart();
+                });
             } else {
                 alert('請輸入正確的 4 位數房號！');
             }
@@ -673,50 +787,49 @@
 
         if (roomId) {
             let copyBtn = this.add.rectangle(1040, 125, 110, 34, 0xfab1a0).setInteractive({ useHandCursor: true });
-            this.add.text(1040, 125, '複製連結', { fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#d35400', fontWeight: '900' }).setOrigin(0.5);
+            this.add.text(1040, 125, '複製房號', { fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#d35400', fontWeight: '900' }).setOrigin(0.5);
             copyBtn.on('pointerdown', () => {
-                const link = window.location.origin + window.location.pathname + '?room=' + roomId;
-                navigator.clipboard.writeText(link);
-                alert('4 人派對邀請連結已複製到剪貼簿！');
+                navigator.clipboard.writeText(roomId);
+                alert('4 位數派對房號已複製！');
             });
         }
 
-        // ==========================================
-        // 【開始遊戲按鈕】最下方
-        // ==========================================
         let startBtn = this.add.rectangle(640, 625, 340, 56, 0x00b894).setInteractive({ useHandCursor: true });
-        this.add.text(640, 625, '開始遊戲 / 進入關卡', {
-            fontFamily: CUTE_FONT_FAMILY, fontSize: '24px', fill: '#ffffff', fontWeight: '900'
-        }).setOrigin(0.5);
-
-        startBtn.on('pointerover', () => startBtn.setFillStyle(0x55efc4));
-        startBtn.on('pointerout', () => startBtn.setFillStyle(0x00b894));
+        this.add.text(640, 625, '開始遊戲 / 進入關卡', { fontFamily: CUTE_FONT_FAMILY, fontSize: '24px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
         startBtn.on('pointerdown', () => {
-            let allReady = true;
+            aiPlayers = {};
             for (let i = 1; i <= 4; i++) {
-                if (joinedPlayers[i] && !readyStatus[i]) {
-                    allReady = false;
-                    break;
+                if (!joinedPlayers[i]) {
+                    aiPlayers[i] = true;
+                    playerNames[i] = `AI P${i}`;
                 }
             }
 
-            if (!allReady) {
-                alert('還有玩家尚未準備就緒！請大家點擊「點擊準備」後再開始遊戲。');
-                return;
+            if (roomId && isHost) {
+                db.ref(`rooms/${roomId}/state`).set({ currentStage: 1 });
+            } else {
+                playSound('start');
+                if (window.domRoomInput) window.domRoomInput.style.display = 'none';
+                toggleMobileControls(true);
+                currentStageIndex = 1;
+                this.scene.start('Stage1Scene');
             }
-
-            playSound('start');
-            if (window.domRoomInput) window.domRoomInput.style.display = 'none';
-            toggleMobileControls(true); // 進入關卡顯示手機虛擬鍵
-            this.scene.start('Stage1Scene');
         });
     };
 
     // -------------------------------------------------------------
-    // 全關卡通用的擊飛死亡動畫函數
+    // 通用遊戲邏輯函數
     // -------------------------------------------------------------
     function eliminatePlayer(scene, p) {
         if (!p.alive || scene.isEnded) return;
+        if (p.hasShield) {
+            p.hasShield = false;
+            p.clearTint();
+            if (p.shieldRing) { p.shieldRing.destroy(); p.shieldRing = null; }
+            playSound('powerup');
+            return;
+        }
+
         p.alive = false;
         p.anims.stop();
         playSound('hit');
@@ -754,38 +867,39 @@
     function setupStageCommon(scene) {
         scene.isReady = false;
         scene.isEnded = false;
-        scene.matchTimer = 0;
-
-        scene.time.addEvent({
-            delay: 25000,
-            callback: () => {
-                if (!scene.isEnded) {
-                    endStage(scene);
-                }
-            }
-        });
+        setupFirebaseListeners(scene);
+        scene.time.addEvent({ delay: 25000, callback: () => { if (!scene.isEnded) endStage(scene); } });
     }
 
     function checkAlivePlayers(scene) {
         if (!scene.isReady || scene.isEnded) return;
         let aliveList = scene.players.filter(p => p.alive);
-        if (aliveList.length <= 1) {
-            endStage(scene);
-        }
+        if (aliveList.length <= 1) endStage(scene);
     }
 
     function endStage(scene) {
         if (scene.isEnded) return;
         scene.isEnded = true;
-
         let aliveList = scene.players.filter(p => p.alive);
-        aliveList.forEach(p => {
-            scores[p.pIndex] += 4;
-        });
+        aliveList.forEach(p => { scores[p.pIndex] += 4; });
         updateInGameScoreboard(scene);
+        scene.time.delayedCall(500, () => { scene.scene.start('ResultScene'); });
+    }
 
-        scene.time.delayedCall(500, () => {
-            scene.scene.start('ResultScene');
+    function updateAIPlayers(scene) {
+        scene.players.forEach(p => {
+            if (aiPlayers[p.pIndex] && p.alive) {
+                if (!p.aiTimer || scene.time.now > p.aiTimer) {
+                    p.aiDir = Phaser.Math.Between(-1, 1);
+                    p.aiTimer = scene.time.now + Phaser.Math.Between(800, 2000);
+                }
+                p.setVelocityX(p.aiDir * 240);
+                if (p.aiDir !== 0) p.setFlipX(p.aiDir < 0);
+
+                if (p.body.touching.down && Math.random() < 0.035) {
+                    p.setVelocityY(-500);
+                }
+            }
         });
     }
 
@@ -804,7 +918,6 @@
         this.physics.world.bounds.setTo(0, -1000, 1280, 1800);
         this.cameras.main.setBounds(0, 0, 1280, 720);
         this.physics.world.gravity.y = 700;
-        this.stageTimer = 0;
 
         this.platforms = this.physics.add.staticGroup();
         this.platforms.create(220, 670, 'platform_neon').setScale(13, 0.8).refreshBody();
@@ -818,75 +931,37 @@
 
         this.players = [];
         let spawnPos = [{x:180,y:570}, {x:260,y:570}, {x:1020,y:570}, {x:1100,y:570}];
-
         for (let i = 1; i <= 4; i++) {
             let p = this.physics.add.sprite(spawnPos[i-1].x, spawnPos[i-1].y, 'p' + i + '_walk_1');
-            p.pIndex = i; p.alive = true;
+            p.pIndex = i; p.alive = true; p.hasShield = false; p.shieldRing = null;
             p.setCollideWorldBounds(true, 0, 0, false);
             this.physics.add.collider(p, this.platforms);
-            p.hasShield = false;
-            p.shieldRing = null;
             p.play('p' + i + '_run');
             this.players.push(p);
         }
-
         this.physics.add.collider(this.players, this.players);
-
         this.wasd = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' });
         this.lavas = this.physics.add.group();
         this.items = this.physics.add.group();
 
         startStageBuffer(this, '關卡 1：熔岩避險', () => { 
             this.isReady = true; 
-
             this.time.addEvent({
                 delay: 400,
                 callback: () => {
                     if (!this.isReady || this.isEnded) return;
-                    this.stageTimer += 0.4;
-                    let spawnChance = Math.min(0.9, 0.4 + (this.stageTimer * 0.03));
-                    if (Math.random() < spawnChance) {
-                        let lava = this.lavas.create(Phaser.Math.Between(100, 1180), 0, 'lava');
-                        let minSpeed = Math.min(500, 250 + (this.stageTimer * 15));
-                        let maxSpeed = Math.min(750, 450 + (this.stageTimer * 20));
-                        lava.setVelocityY(Phaser.Math.Between(minSpeed, maxSpeed));
-
-                        let trailEmitter = this.add.particles('particle_fire').createEmitter({
-                            speed: { min: 10, max: 40 },
-                            angle: { min: 240, max: 300 },
-                            scale: { start: 1.2, end: 0.1 },
-                            lifespan: 300,
-                            blendMode: 'ADD',
-                            frequency: 30
-                        });
-                        trailEmitter.startFollow(lava);
-                        lava.trailEmitter = trailEmitter;
-                    }
+                    let lava = this.lavas.create(Phaser.Math.Between(100, 1180), 0, 'lava');
+                    lava.setVelocityY(Phaser.Math.Between(300, 600));
                 },
                 loop: true
             });
-
             this.time.addEvent({
                 delay: 4500,
                 callback: () => {
                     if (!this.isReady || this.isEnded) return;
-                    let coords = [{x: 280, y: 470}, {x: 1000, y: 470}, {x: 640, y: 240}, {x: 640, y: 540}];
-                    let spot = coords[Phaser.Math.Between(0, coords.length - 1)];
-                    let shieldItem = this.items.create(spot.x, spot.y, 'item_shield');
-                    shieldItem.itemType = 'item_shield';
-                    shieldItem.body.setAllowGravity(false);
-                    shieldItem.setVelocity(0, 0);
-
-                    createCoolItemEffect(this, shieldItem, 0x00ffff);
-
-                    this.tweens.add({
-                        targets: shieldItem,
-                        y: spot.y - 12,
-                        duration: 800,
-                        yoyo: true,
-                        repeat: -1,
-                        ease: 'Sine.easeInOut'
-                    });
+                    let item = this.items.create(Phaser.Math.Between(200, 1080), 300, 'item_shield');
+                    item.body.setAllowGravity(false);
+                    createCoolItemEffect(this, item, 0x00ffff);
                 },
                 loop: true
             });
@@ -897,84 +972,39 @@
                 if (!player.alive || this.isEnded) return;
                 player.hasShield = true;
                 player.setTint(0x3498db);
-
                 destroyCoolItemEffect(item);
-
                 if (player.shieldRing) player.shieldRing.destroy();
                 player.shieldRing = this.add.circle(player.x, player.y, 24, 0x3498db, 0.4);
-
-                let emitter = this.add.particles('particle_shield').createEmitter({
-                    x: item.x, y: item.y,
-                    speed: { min: 80, max: 220 },
-                    angle: { min: 0, max: 360 },
-                    scale: { start: 1.5, end: 0 },
-                    lifespan: 500,
-                    quantity: 25
-                });
-                this.time.delayedCall(500, () => emitter.remove());
-
                 item.destroy();
                 playSound('powerup');
             }, null, this);
-        });
-
-        this.players.forEach(p => {
             this.physics.add.overlap(p, this.lavas, (player, lava) => {
                 if (!player.alive || !this.isReady || this.isEnded) return;
-                if (lava.trailEmitter) lava.trailEmitter.remove();
                 lava.destroy();
-                if (player.hasShield) {
-                    player.hasShield = false;
-                    player.clearTint();
-                    if (player.shieldRing) { player.shieldRing.destroy(); player.shieldRing = null; }
-                    playSound('beep');
-                } else {
-                    eliminatePlayer(this, player);
-                }
+                eliminatePlayer(this, player);
             }, null, this);
         });
     };
-
     Stage1Scene.prototype.update = function() {
         if (!this.isReady || this.isEnded) return;
         checkAlivePlayers(this);
-
-        this.lavas.getChildren().forEach(lava => {
-            if (lava.y > 730) {
-                if (lava.trailEmitter) lava.trailEmitter.remove();
-                lava.destroy();
-            }
-        });
-
-        this.items.getChildren().forEach(item => {
-            updateCoolItemPos(item);
-        });
-
+        this.lavas.getChildren().forEach(l => { if(l.y > 730) l.destroy(); });
+        this.items.getChildren().forEach(item => updateCoolItemPos(item));
         this.players.forEach(p => {
-            if (p.shieldRing && p.alive) {
-                p.shieldRing.setPosition(p.x, p.y);
-            }
-            if (p.alive && p.y > 730) {
-                eliminatePlayer(this, p);
-            }
+            if (p.shieldRing && p.alive) p.shieldRing.setPosition(p.x, p.y);
+            if (p.alive && p.y > 730) eliminatePlayer(this, p);
         });
+
+        updateAIPlayers(this);
 
         let p = this.players[myPlayerIndex - 1];
         if (p && p.alive) {
-            if (this.wasd.left.isDown || mobileInput.left) {
-                p.setVelocityX(-260);
-                p.setFlipX(true);
-            } else if (this.wasd.right.isDown || mobileInput.right) {
-                p.setVelocityX(260);
-                p.setFlipX(false);
-            } else {
-                p.setVelocityX(0);
-            }
-
-            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) {
-                p.setVelocityY(-500);
-            }
+            if (this.wasd.left.isDown || mobileInput.left) { p.setVelocityX(-260); p.setFlipX(true); }
+            else if (this.wasd.right.isDown || mobileInput.right) { p.setVelocityX(260); p.setFlipX(false); }
+            else { p.setVelocityX(0); }
+            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) { p.setVelocityY(-500); }
             mobileInput.jumpJustDown = false;
+            syncMyPosition(this);
         }
     };
 
@@ -994,10 +1024,6 @@
         this.cameras.main.setBounds(0, 0, 1280, 720);
         this.physics.world.gravity.y = 700;
 
-        this.platformCoords = [
-            {x: 640, y: 590}, {x: 360, y: 450}, {x: 920, y: 450}, {x: 640, y: 320}
-        ];
-
         this.platforms = this.physics.add.staticGroup();
         this.platforms.create(640, 630, 'platform_neon').setScale(35, 0.8).refreshBody();
         this.platforms.create(360, 490, 'platform_neon').setScale(13, 0.8).refreshBody();
@@ -1006,70 +1032,37 @@
 
         this.players = [];
         let positions = [320, 520, 760, 960];
-
         for (let i = 1; i <= 4; i++) {
             let p = this.physics.add.sprite(positions[i-1], 520, 'p' + i + '_walk_1');
-            p.pIndex = i; p.alive = true;
+            p.pIndex = i; p.alive = true; p.hasShield = false; p.shieldRing = null;
             p.setCollideWorldBounds(true, 0, 0, false);
             this.physics.add.collider(p, this.platforms);
-            p.hasShield = false;
-            p.shieldRing = null;
             p.play('p' + i + '_run');
             this.players.push(p);
         }
-
-        this.physics.add.collider(this.players, this.players);
-
         this.wasd = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' });
         this.saws = this.physics.add.group();
         this.items = this.physics.add.group();
 
-        this.initialSaw = this.saws.create(640, 100, 'saw');
-        this.initialSaw.setBounce(1, 1).setCollideWorldBounds(true);
-        this.initialSaw.body.setAllowGravity(false);
-        this.initialSaw.setAngularVelocity(400);
-
         startStageBuffer(this, '關卡 2：鋸片生存擂台', () => {
             this.isReady = true;
-            if (this.initialSaw) {
-                this.initialSaw.body.setAllowGravity(true);
-                this.initialSaw.setVelocity(Phaser.Math.Between(-280, 280), 180);
-            }
-
             this.time.addEvent({
                 delay: 2000,
                 callback: () => {
                     if (!this.isReady || this.isEnded) return;
-                    let rx = Phaser.Math.Between(200, 1080);
-                    let newSaw = this.saws.create(rx, 50, 'saw');
-                    newSaw.setBounce(1, 1).setCollideWorldBounds(true);
-                    newSaw.setVelocity(Phaser.Math.Between(-300, 300), 200);
-                    newSaw.setAngularVelocity(Phaser.Math.Between(300, 600));
-                    playSound('beep');
+                    let saw = this.saws.create(Phaser.Math.Between(200, 1080), 50, 'saw');
+                    saw.setBounce(1, 1).setCollideWorldBounds(true);
+                    saw.setVelocity(Phaser.Math.Between(-300, 300), 200);
                 },
                 loop: true
             });
-
             this.time.addEvent({
                 delay: 4500,
                 callback: () => {
                     if (!this.isReady || this.isEnded) return;
-                    let spot = this.platformCoords[Phaser.Math.Between(0, this.platformCoords.length - 1)];
-                    let shieldItem = this.items.create(spot.x, spot.y - 30, 'item_shield');
-                    shieldItem.itemType = 'item_shield';
-                    shieldItem.body.setAllowGravity(false);
-                    shieldItem.setVelocity(0, 0);
-
-                    createCoolItemEffect(this, shieldItem, 0x00ffff);
-
-                    this.tweens.add({
-                        targets: shieldItem,
-                        y: spot.y - 42,
-                        duration: 800,
-                        yoyo: true,
-                        repeat: -1,
-                        ease: 'Sine.easeInOut'
-                    });
+                    let item = this.items.create(Phaser.Math.Between(200, 1080), 300, 'item_shield');
+                    item.body.setAllowGravity(false);
+                    createCoolItemEffect(this, item, 0x00ffff);
                 },
                 loop: true
             });
@@ -1080,81 +1073,39 @@
                 if (!player.alive || this.isEnded) return;
                 player.hasShield = true;
                 player.setTint(0x3498db);
-
                 destroyCoolItemEffect(item);
-
                 if (player.shieldRing) player.shieldRing.destroy();
                 player.shieldRing = this.add.circle(player.x, player.y, 24, 0x3498db, 0.4);
-
-                let emitter = this.add.particles('particle_shield').createEmitter({
-                    x: item.x, y: item.y,
-                    speed: { min: 80, max: 220 },
-                    angle: { min: 0, max: 360 },
-                    scale: { start: 1.5, end: 0 },
-                    lifespan: 500,
-                    quantity: 25
-                });
-                this.time.delayedCall(500, () => emitter.remove());
-
                 item.destroy();
                 playSound('powerup');
             }, null, this);
-        });
-
-        this.players.forEach(p => {
-            this.physics.add.overlap(p, this.saws, (player, saw) => {
-                if (!player.alive || !this.isReady || this.isEnded) return;
-                if (player.hasShield) {
-                    player.hasShield = false;
-                    player.clearTint();
-                    if (player.shieldRing) { player.shieldRing.destroy(); player.shieldRing = null; }
-                    saw.destroy();
-                    playSound('beep');
-                } else {
-                    eliminatePlayer(this, player);
-                }
-            }, null, this);
+            this.physics.add.overlap(p, this.saws, (pl, s) => { eliminatePlayer(this, pl); }, null, this);
         });
     };
-
     Stage2Scene.prototype.update = function() {
         if (!this.isReady || this.isEnded) return;
         checkAlivePlayers(this);
-
-        this.items.getChildren().forEach(item => {
-            updateCoolItemPos(item);
-        });
-
+        this.items.getChildren().forEach(item => updateCoolItemPos(item));
         this.players.forEach(p => {
-            if (p.shieldRing && p.alive) {
-                p.shieldRing.setPosition(p.x, p.y);
-            }
-            if (p.alive && p.y > 730) {
-                eliminatePlayer(this, p);
-            }
+            if (p.shieldRing && p.alive) p.shieldRing.setPosition(p.x, p.y);
+            if (p.alive && p.y > 730) eliminatePlayer(this, p);
         });
+
+        updateAIPlayers(this);
 
         let p = this.players[myPlayerIndex - 1];
         if (p && p.alive) {
-            if (this.wasd.left.isDown || mobileInput.left) {
-                p.setVelocityX(-260);
-                p.setFlipX(true);
-            } else if (this.wasd.right.isDown || mobileInput.right) {
-                p.setVelocityX(260);
-                p.setFlipX(false);
-            } else {
-                p.setVelocityX(0);
-            }
-
-            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) {
-                p.setVelocityY(-500);
-            }
+            if (this.wasd.left.isDown || mobileInput.left) { p.setVelocityX(-260); p.setFlipX(true); }
+            else if (this.wasd.right.isDown || mobileInput.right) { p.setVelocityX(260); p.setFlipX(false); }
+            else { p.setVelocityX(0); }
+            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) { p.setVelocityY(-500); }
             mobileInput.jumpJustDown = false;
+            syncMyPosition(this);
         }
     };
 
     // -------------------------------------------------------------
-    // 關卡 3：雷射彈幕大亂鬥
+    // 關卡 3：多平台雷射大亂鬥 (AI 自動射擊 + 子彈不穿牆)
     // -------------------------------------------------------------
     function Stage3Scene() { Phaser.Scene.call(this, { key: 'Stage3Scene' }); }
     Stage3Scene.prototype = Object.create(Phaser.Scene.prototype);
@@ -1169,11 +1120,6 @@
         this.cameras.main.setBounds(0, 0, 1280, 720);
         this.physics.world.gravity.y = 800;
 
-        this.platformCoords = [
-            {x: 320, y: 480}, {x: 960, y: 480},
-            {x: 640, y: 340}, {x: 260, y: 200}, {x: 1020, y: 200}
-        ];
-
         this.platforms = this.physics.add.staticGroup();
         this.platforms.create(640, 700, 'platform_neon').setScale(45, 1).refreshBody();
         this.platforms.create(320, 520, 'platform_neon').setScale(15, 0.8).refreshBody();
@@ -1184,30 +1130,19 @@
 
         this.players = [];
         let spawnPos = [{x:220,y:620}, {x:1060,y:620}, {x:260,y:150}, {x:1020,y:150}];
-
         for (let i = 1; i <= 4; i++) {
             let p = this.physics.add.sprite(spawnPos[i-1].x, spawnPos[i-1].y, 'p' + i + '_walk_1');
-            p.pIndex = i; p.alive = true;
+            p.pIndex = i; p.alive = true; p.moveSpeed = 280; p.fireCooldown = 300; p.lastFired = 0;
+            p.hasShield = false; p.shieldRing = null; p.weaponType = 'normal'; p.weaponTimer = 0;
+            p.canDoubleJump = true;
             p.setCollideWorldBounds(true, 0, 0, false);
             this.physics.add.collider(p, this.platforms);
-            p.moveSpeed = 280;
-            p.fireCooldown = 300;
-            p.lastFired = 0;
-            p.hasShield = false;
-            p.shieldRing = null;
-            p.weaponType = 'normal';
-            p.weaponTimer = 0;
-            p.canDoubleJump = false;
             p.play('p' + i + '_run');
-
             p.statusText = this.add.text(p.x, p.y - 45, '', { fontFamily: CUTE_FONT_FAMILY, fontSize: '14px', fill: '#f1c40f', fontWeight: '900', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5);
             p.gunSprite = this.add.sprite(p.x, p.y, 'gun').setOrigin(0.3, 0.5);
-
             this.players.push(p);
         }
-
         this.physics.add.collider(this.players, this.players);
-
         this.wasd = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' });
         this.bullets = this.physics.add.group();
         this.items = this.physics.add.group();
@@ -1216,34 +1151,24 @@
             bullet.destroy();
         });
 
+        const fireBullet = (startX, startY, angle, speed, ownerIdx) => {
+            let b = this.bullets.create(startX, startY, 'bullet');
+            this.physics.velocityFromRotation(angle, speed, b.body.velocity);
+            b.ownerIndex = ownerIdx;
+            b.body.setAllowGravity(false);
+        };
+
         startStageBuffer(this, '關卡 3：多平台雷射大亂鬥', () => { 
             this.isReady = true; 
-
             this.time.addEvent({
                 delay: 4000,
                 callback: () => {
                     if (!this.isReady || this.isEnded) return;
-                    let spot = this.platformCoords[Phaser.Math.Between(0, this.platformCoords.length - 1)];
                     let types = ['item_shield', 'item_rapid', 'item_spread'];
-                    let chosenType = types[Phaser.Math.Between(0, types.length - 1)];
-
-                    let item = this.items.create(spot.x, spot.y - 30, chosenType);
-                    item.itemType = chosenType;
+                    let chosen = types[Phaser.Math.Between(0, 2)];
+                    let item = this.items.create(Phaser.Math.Between(200, 1080), 350, chosen);
                     item.body.setAllowGravity(false);
-                    item.setVelocity(0, 0);
-
-                    let glowColor = chosenType === 'item_shield' ? 0x00ffff : (chosenType === 'item_rapid' ? 0xf1c40f : 0x2ecc71);
-                    
-                    createCoolItemEffect(this, item, glowColor);
-
-                    this.tweens.add({
-                        targets: item,
-                        y: spot.y - 42,
-                        duration: 800,
-                        yoyo: true,
-                        repeat: -1,
-                        ease: 'Sine.easeInOut'
-                    });
+                    createCoolItemEffect(this, item, 0xf1c40f);
                 },
                 loop: true
             });
@@ -1253,51 +1178,20 @@
             this.physics.add.overlap(p, this.items, (player, item) => {
                 if (!player.alive || this.isEnded) return;
                 playSound('powerup');
-
                 destroyCoolItemEffect(item);
-
-                let particleKey = 'particle_shield';
                 if (item.texture.key === 'item_shield') {
                     player.hasShield = true;
                     player.setTint(0x3498db);
                     if (player.shieldRing) player.shieldRing.destroy();
                     player.shieldRing = this.add.circle(player.x, player.y, 24, 0x3498db, 0.4);
-                } else if (item.texture.key === 'item_rapid') {
+                } else {
                     player.weaponType = 'rapid';
                     player.fireCooldown = 120;
-                    player.weaponTimer = this.time.now + 5000;
                     player.setTint(0xf1c40f);
-                    particleKey = 'particle_fire';
-                } else if (item.texture.key === 'item_spread') {
-                    player.weaponType = 'spread';
-                    player.fireCooldown = 400;
-                    player.weaponTimer = this.time.now + 5000;
-                    player.setTint(0x2ecc71);
-                    particleKey = 'particle_spread';
                 }
-
-                let emitter = this.add.particles(particleKey).createEmitter({
-                    x: item.x, y: item.y,
-                    speed: { min: 80, max: 220 },
-                    angle: { min: 0, max: 360 },
-                    scale: { start: 1.5, end: 0 },
-                    lifespan: 500,
-                    quantity: 25
-                });
-                this.time.delayedCall(500, () => emitter.remove());
-
                 item.destroy();
             }, null, this);
         });
-
-        const fireBullet = (startX, startY, angle, speed, ownerIdx) => {
-            let b = this.bullets.create(startX, startY, 'bullet');
-            this.physics.velocityFromRotation(angle, speed, b.body.velocity);
-            b.ownerIndex = ownerIdx;
-            b.startX = startX;
-            b.startY = startY;
-            b.maxRange = 600;
-        };
 
         this.input.on('pointerdown', (pointer) => {
             if (!this.isReady || this.isEnded) return;
@@ -1306,19 +1200,10 @@
                 let now = this.time.now;
                 if (now - p.lastFired < p.fireCooldown) return;
                 p.lastFired = now;
-
                 let worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
                 let angle = Phaser.Math.Angle.Between(p.x, p.y, worldPoint.x, worldPoint.y);
-
                 playSound('shoot');
-
-                if (p.weaponType === 'spread') {
-                    [-0.25, 0, 0.25].forEach(offset => {
-                        fireBullet(p.x, p.y, angle + offset, 700, p.pIndex);
-                    });
-                } else {
-                    fireBullet(p.x, p.y, angle, 750, p.pIndex);
-                }
+                fireBullet(p.x, p.y, angle, 750, p.pIndex);
             }
         });
 
@@ -1327,89 +1212,62 @@
                 if (!t.alive || !this.isReady || this.isEnded) return;
                 if (b.ownerIndex !== t.pIndex) {
                     b.destroy();
-                    if (t.hasShield) {
-                        t.hasShield = false;
-                        t.clearTint();
-                        if (t.shieldRing) { t.shieldRing.destroy(); t.shieldRing = null; }
-                        playSound('beep');
-                    } else {
-                        eliminatePlayer(this, t);
-                    }
+                    eliminatePlayer(this, t);
                 }
             }, null, this);
         });
     };
-
-    Stage3Scene.prototype.update = function(time, delta) {
+    Stage3Scene.prototype.update = function(time) {
         if (!this.isReady || this.isEnded) return;
         checkAlivePlayers(this);
-
-        this.items.getChildren().forEach(item => {
-            updateCoolItemPos(item);
-        });
-
-        this.bullets.getChildren().forEach(b => {
-            if (b.active) {
-                let dist = Phaser.Math.Distance.Between(b.startX, b.startY, b.x, b.y);
-                if (dist > b.maxRange) {
-                    b.destroy();
-                }
-            }
-        });
+        this.items.getChildren().forEach(item => updateCoolItemPos(item));
 
         this.players.forEach(p => {
             if (!p.alive) return;
+            if (aiPlayers[p.pIndex]) {
+                if (!p.aiTimer || time > p.aiTimer) {
+                    p.aiDir = Phaser.Math.Between(-1, 1);
+                    p.aiTimer = time + Phaser.Math.Between(800, 1800);
+                }
+                p.setVelocityX(p.aiDir * 260);
+                if (p.aiDir !== 0) p.setFlipX(p.aiDir < 0);
 
-            if (p.weaponType !== 'normal' && time > p.weaponTimer) {
-                p.weaponType = 'normal';
-                p.fireCooldown = 300;
-                if (!p.hasShield) p.clearTint();
+                if (p.body.touching.down && Math.random() < 0.04) {
+                    p.setVelocityY(-520);
+                }
+
+                if (!p.aiLastShoot || time - p.aiLastShoot > 1200) {
+                    p.aiLastShoot = time;
+                    let targets = this.players.filter(pl => pl.alive && pl.pIndex !== p.pIndex);
+                    if (targets.length > 0) {
+                        let target = targets[Phaser.Math.Between(0, targets.length - 1)];
+                        let angle = Phaser.Math.Angle.Between(p.x, p.y, target.x, target.y);
+                        let b = this.bullets.create(p.x, p.y, 'bullet');
+                        this.physics.velocityFromRotation(angle, 700, b.body.velocity);
+                        b.ownerIndex = p.pIndex;
+                        b.body.setAllowGravity(false);
+                        playSound('shoot');
+                    }
+                }
             }
 
-            if (p.weaponType !== 'normal') {
-                let timeLeft = Math.ceil((p.weaponTimer - time) / 1000);
-                let weaponName = p.weaponType === 'spread' ? '散彈' : '連發';
-                p.statusText.setPosition(p.x, p.y - 45).setText(`${weaponName} ${timeLeft}s`).setVisible(true);
-            } else {
-                p.statusText.setVisible(false);
-            }
-
-            if (p.shieldRing) {
-                p.shieldRing.setPosition(p.x, p.y);
-            }
-
+            if (p.shieldRing) p.shieldRing.setPosition(p.x, p.y);
             if (p.gunSprite) {
                 p.gunSprite.setPosition(p.x, p.y + 2);
                 if (p.pIndex === myPlayerIndex) {
                     let pointer = this.input.activePointer;
                     let worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-                    let angle = Phaser.Math.Angle.Between(p.x, p.y, worldPoint.x, worldPoint.y);
-                    p.gunSprite.setRotation(angle);
-                    if (angle > Math.PI / 2 || angle < -Math.PI / 2) {
-                        p.gunSprite.setFlipY(true);
-                    } else {
-                        p.gunSprite.setFlipY(false);
-                    }
-                } else {
-                    p.gunSprite.setRotation(0);
+                    p.gunSprite.setRotation(Phaser.Math.Angle.Between(p.x, p.y, worldPoint.x, worldPoint.y));
                 }
             }
-            if (p.alive && p.y > 730) {
-                eliminatePlayer(this, p);
-            }
+            if (p.alive && p.y > 730) eliminatePlayer(this, p);
         });
 
         let p = this.players[myPlayerIndex - 1];
         if (p && p.alive) {
-            if (this.wasd.left.isDown || mobileInput.left) {
-                p.setVelocityX(-p.moveSpeed);
-                p.setFlipX(true);
-            } else if (this.wasd.right.isDown || mobileInput.right) {
-                p.setVelocityX(p.moveSpeed);
-                p.setFlipX(false);
-            } else {
-                p.setVelocityX(0);
-            }
+            if (this.wasd.left.isDown || mobileInput.left) { p.setVelocityX(-280); p.setFlipX(true); }
+            else if (this.wasd.right.isDown || mobileInput.right) { p.setVelocityX(280); p.setFlipX(false); }
+            else { p.setVelocityX(0); }
 
             if (p.body.touching.down) {
                 p.canDoubleJump = true;
@@ -1425,19 +1283,18 @@
                 }
             }
             mobileInput.jumpJustDown = false;
+            syncMyPosition(this);
         }
     };
 
     // -------------------------------------------------------------
-    // 關卡 4：傳炸彈大亂鬥
+    // 關卡 4：傳炸彈大亂鬥 (縮小範圍至 60 像素 + 1 秒暈眩)
     // -------------------------------------------------------------
     function Stage4Scene() { Phaser.Scene.call(this, { key: 'Stage4Scene' }); }
     Stage4Scene.prototype = Object.create(Phaser.Scene.prototype);
-    Stage4Scene.prototype.preload = function() { initTextures(this); };
     Stage4Scene.prototype.create = function() {
         this.isReady = false;
         this.isEnded = false;
-
         createRichBackground(this);
         createInGameScoreboard(this);
 
@@ -1455,7 +1312,6 @@
 
         this.players = [];
         let spawnPos = [{x:220,y:620}, {x:1060,y:620}, {x:260,y:150}, {x:1020,y:150}];
-
         for (let i = 1; i <= 4; i++) {
             let p = this.physics.add.sprite(spawnPos[i-1].x, spawnPos[i-1].y, 'p' + i + '_walk_1');
             p.pIndex = i; p.alive = true; p.hasBomb = false; p.stunnedUntil = 0;
@@ -1464,60 +1320,39 @@
             p.play('p' + i + '_run');
             this.players.push(p);
         }
-
         this.physics.add.collider(this.players, this.players);
-
         this.wasd = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' });
-        
         this.bombSprite = this.add.sprite(0, 0, 'bomb').setScale(1.2).setVisible(false);
         this.bombText = this.add.text(0, -30, '15', { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ff0000', fontWeight: '900', stroke: '#000', strokeThickness: 4 }).setOrigin(0.5).setVisible(false);
-        this.starSprite = this.add.sprite(0, 0, 'star').setScale(1.5).setVisible(false);
-
-        this.lightningGraphics = this.add.graphics();
 
         startStageBuffer(this, '關卡 4：傳炸彈大亂鬥', () => { 
             this.isReady = true; 
             this.bombTimer = 15;
-
             let aliveList = this.players.filter(p => p.alive);
             if (aliveList.length > 0) {
-                let initialOwner = aliveList[Phaser.Math.Between(0, aliveList.length - 1)];
-                initialOwner.hasBomb = true;
+                let firstHolder = aliveList[0];
+                firstHolder.hasBomb = true;
+                firstHolder.stunnedUntil = this.time.now + 1000;
             }
 
             this.time.addEvent({
-                delay: 1000,
-                loop: true,
+                delay: 1000, loop: true,
                 callback: () => {
                     if (!this.isReady || this.isEnded) return;
                     this.bombTimer--;
                     playSound('beep');
-
                     if (this.bombTimer <= 0) {
                         let holder = this.players.find(p => p.hasBomb && p.alive);
                         if (holder) {
-                            this.cameras.main.shake(300, 0.02);
-
-                            let emitter = this.add.particles('particle_fire').createEmitter({
-                                x: holder.x, y: holder.y,
-                                speed: { min: 100, max: 350 },
-                                angle: { min: 0, max: 360 },
-                                scale: { start: 1.5, end: 0.2 },
-                                lifespan: 500,
-                                gravityY: 200,
-                                quantity: 30
-                            });
-                            this.time.delayedCall(500, () => emitter.remove());
-
                             holder.hasBomb = false;
                             eliminatePlayer(this, holder);
                         }
-
                         let nextAlive = this.players.filter(p => p.alive);
                         if (nextAlive.length > 1) {
                             this.bombTimer = 15;
-                            let nextOwner = nextAlive[Phaser.Math.Between(0, nextAlive.length - 1)];
-                            nextOwner.hasBomb = true;
+                            let newHolder = nextAlive[Phaser.Math.Between(0, nextAlive.length - 1)];
+                            newHolder.hasBomb = true;
+                            newHolder.stunnedUntil = this.time.now + 1000;
                             playSound('powerup');
                         }
                     }
@@ -1529,42 +1364,29 @@
             if (!this.isReady || this.isEnded) return;
             let me = this.players[myPlayerIndex - 1];
             if (!me || !me.alive || !me.hasBomb) return;
-
-            let worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-            let targets = this.players.filter(p => p.alive && p.pIndex !== me.pIndex);
+            if (this.time.now < me.stunnedUntil) return;
             
+            let targets = this.players.filter(p => p.alive && p.pIndex !== me.pIndex);
             if (targets.length === 0) return;
 
             let closestTarget = targets.reduce((prev, curr) => {
-                let dPrev = Phaser.Math.Distance.Between(worldPoint.x, worldPoint.y, prev.x, prev.y);
-                let dCurr = Phaser.Math.Distance.Between(worldPoint.x, worldPoint.y, curr.x, curr.y);
+                let dPrev = Phaser.Math.Distance.Between(me.x, me.y, prev.x, prev.y);
+                let dCurr = Phaser.Math.Distance.Between(me.x, me.y, curr.x, curr.y);
                 return dCurr < dPrev ? curr : prev;
             });
 
-            this.lightningGraphics.clear();
-            this.lightningGraphics.lineStyle(4, 0x00ffff, 1);
-            this.lightningGraphics.beginPath();
-            this.lightningGraphics.moveTo(me.x, me.y);
-            let midX = (me.x + closestTarget.x) / 2 + Phaser.Math.Between(-30, 30);
-            let midY = (me.y + closestTarget.y) / 2 + Phaser.Math.Between(-30, 30);
-            this.lightningGraphics.lineTo(midX, midY);
-            this.lightningGraphics.lineTo(closestTarget.x, closestTarget.y);
-            this.lightningGraphics.strokePath();
-
-            this.time.delayedCall(150, () => {
-                this.lightningGraphics.clear();
-            });
-
-            me.hasBomb = false;
-            closestTarget.hasBomb = true;
-            closestTarget.stunnedUntil = this.time.now + 300;
-            playSound('powerup');
+            let dist = Phaser.Math.Distance.Between(me.x, me.y, closestTarget.x, closestTarget.y);
+            // 炸彈範圍縮小至 60 像素
+            if (dist <= 60) {
+                me.hasBomb = false;
+                closestTarget.hasBomb = true;
+                closestTarget.stunnedUntil = this.time.now + 1000;
+                playSound('powerup');
+            }
         });
     };
-
-    Stage4Scene.prototype.update = function(time, delta) {
+    Stage4Scene.prototype.update = function(time) {
         if (!this.isReady || this.isEnded) return;
-
         let holder = this.players.find(p => p.hasBomb && p.alive);
         if (holder) {
             this.bombSprite.setPosition(holder.x, holder.y - 35).setVisible(true);
@@ -1575,41 +1397,63 @@
         }
 
         this.players.forEach(p => {
-            if (p.alive && p.y > 730) {
-                eliminatePlayer(this, p);
+            if (aiPlayers[p.pIndex] && p.alive) {
+                if (p.hasBomb) {
+                    if (time < p.stunnedUntil) {
+                        p.setVelocityX(0);
+                        return;
+                    }
+
+                    let targets = this.players.filter(pl => pl.alive && pl.pIndex !== p.pIndex);
+                    if (targets.length > 0) {
+                        let closest = targets.reduce((prev, curr) => {
+                            let dPrev = Phaser.Math.Distance.Between(p.x, p.y, prev.x, prev.y);
+                            let dCurr = Phaser.Math.Distance.Between(p.x, p.y, curr.x, curr.y);
+                            return dCurr < dPrev ? curr : prev;
+                        });
+
+                        let dist = Phaser.Math.Distance.Between(p.x, p.y, closest.x, closest.y);
+                        if (closest.x < p.x) { p.setVelocityX(-280); p.setFlipX(true); }
+                        else { p.setVelocityX(280); p.setFlipX(false); }
+
+                        // AI 傳炸彈範圍也同步縮小至 60 像素
+                        if (dist <= 60) {
+                            p.hasBomb = false;
+                            closest.hasBomb = true;
+                            closest.stunnedUntil = time + 1000;
+                            playSound('powerup');
+                        }
+                    }
+                } else {
+                    if (!p.aiTimer || time > p.aiTimer) {
+                        p.aiDir = Phaser.Math.Between(-1, 1);
+                        p.aiTimer = time + Phaser.Math.Between(1000, 2500);
+                    }
+                    p.setVelocityX(p.aiDir * 240);
+                    if (p.aiDir !== 0) p.setFlipX(p.aiDir < 0);
+                }
+
+                if (p.body.touching.down && Math.random() < 0.035) {
+                    p.setVelocityY(-500);
+                }
             }
         });
 
-        let localPlayer = this.players[myPlayerIndex - 1];
-        if (localPlayer && localPlayer.alive && time < localPlayer.stunnedUntil) {
-            localPlayer.setVelocityX(0);
-            localPlayer.setTint(0xe74c3c);
-            this.starSprite.setPosition(localPlayer.x, localPlayer.y - 45).setVisible(true);
-            this.starSprite.rotation += 0.2;
-            return;
-        } else if (localPlayer && localPlayer.alive) {
-            localPlayer.clearTint();
-            this.starSprite.setVisible(false);
-        }
-
-        let p = localPlayer;
+        let p = this.players[myPlayerIndex - 1];
         if (p && p.alive) {
-            let currentSpeed = p.hasBomb ? 320 : 260;
-
-            if (this.wasd.left.isDown || mobileInput.left) {
-                p.setVelocityX(-currentSpeed);
-                p.setFlipX(true);
-            } else if (this.wasd.right.isDown || mobileInput.right) {
-                p.setVelocityX(currentSpeed);
-                p.setFlipX(false);
-            } else {
+            if (time < p.stunnedUntil) {
                 p.setVelocityX(0);
+            } else {
+                if (this.wasd.left.isDown || mobileInput.left) { p.setVelocityX(-260); p.setFlipX(true); }
+                else if (this.wasd.right.isDown || mobileInput.right) { p.setVelocityX(260); p.setFlipX(false); }
+                else { p.setVelocityX(0); }
             }
 
-            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) {
-                p.setVelocityY(-500);
+            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down && time >= p.stunnedUntil) { 
+                p.setVelocityY(-500); 
             }
             mobileInput.jumpJustDown = false;
+            syncMyPosition(this);
         }
     };
 
@@ -1618,7 +1462,6 @@
     // -------------------------------------------------------------
     function Stage5Scene() { Phaser.Scene.call(this, { key: 'Stage5Scene' }); }
     Stage5Scene.prototype = Object.create(Phaser.Scene.prototype);
-    Stage5Scene.prototype.preload = function() { initTextures(this); };
     Stage5Scene.prototype.create = function() {
         initAnimations(this);
         setupStageCommon(this);
@@ -1639,7 +1482,6 @@
 
         this.players = [];
         let spawnPos = [{x:200,y:600}, {x:1080,y:600}, {x:260,y:480}, {x:1020,y:480}];
-
         for (let i = 1; i <= 4; i++) {
             let p = this.physics.add.sprite(spawnPos[i-1].x, spawnPos[i-1].y, 'p' + i + '_walk_1');
             p.pIndex = i; p.alive = true;
@@ -1648,92 +1490,57 @@
             p.play('p' + i + '_run');
             this.players.push(p);
         }
-
         this.physics.add.collider(this.players, this.players);
-
         this.wasd = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' });
         this.laserWalls = this.physics.add.group();
 
-        startStageBuffer(this, '關卡 5：高難度雷射穿透大賽', () => { 
+        startStageBuffer(this, '關卡 5：高難度雷射牆障礙', () => { 
             this.isReady = true; 
-
             this.time.addEvent({
                 delay: 2000,
                 callback: () => {
                     if (!this.isReady || this.isEnded) return;
                     let fromLeft = Math.random() < 0.5;
-                    let startX = fromLeft ? -60 : 1340;
-                    
                     let heights = [180, 280, 380, 480, 580, 640];
                     let posY = heights[Phaser.Math.Between(0, heights.length - 1)];
-
-                    let wall = this.laserWalls.create(startX, posY, 'laser_wall');
+                    let wall = this.laserWalls.create(fromLeft ? -60 : 1340, posY, 'laser_wall');
                     wall.body.setAllowGravity(false);
                     wall.setScale(1.8, 3.5);
-                    
-                    let speed = fromLeft ? 420 : -420;
-                    wall.setVelocityX(speed);
+                    wall.setVelocityX(fromLeft ? 420 : -420);
                     playSound('beep');
-
-                    this.time.delayedCall(4000, () => {
-                        if (wall && wall.active) wall.destroy();
-                    });
                 },
                 loop: true
             });
         });
     };
-
     Stage5Scene.prototype.update = function() {
         if (!this.isReady || this.isEnded) return;
         checkAlivePlayers(this);
-
         this.laserWalls.getChildren().forEach(wall => {
-            if (!wall.active) return;
             this.players.forEach(p => {
-                if (!p.alive) return;
-                let dist = Phaser.Math.Distance.Between(p.x, p.y, wall.x, wall.y);
-                if (dist < 40) {
-                    eliminatePlayer(this, p);
-                }
+                if (p.alive && Phaser.Math.Distance.Between(p.x, p.y, wall.x, wall.y) < 40) eliminatePlayer(this, p);
             });
         });
-
-        this.players.forEach(p => {
-            if (p.alive && p.y > 730) {
-                eliminatePlayer(this, p);
-            }
-        });
-
+        updateAIPlayers(this);
         let p = this.players[myPlayerIndex - 1];
         if (p && p.alive) {
-            if (this.wasd.left.isDown || mobileInput.left) {
-                p.setVelocityX(-260);
-                p.setFlipX(true);
-            } else if (this.wasd.right.isDown || mobileInput.right) {
-                p.setVelocityX(260);
-                p.setFlipX(false);
-            } else {
-                p.setVelocityX(0);
-            }
-
-            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) {
-                p.setVelocityY(-500);
-            }
+            if (this.wasd.left.isDown || mobileInput.left) { p.setVelocityX(-260); p.setFlipX(true); }
+            else if (this.wasd.right.isDown || mobileInput.right) { p.setVelocityX(260); p.setFlipX(false); }
+            else { p.setVelocityX(0); }
+            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) { p.setVelocityY(-500); }
             mobileInput.jumpJustDown = false;
+            syncMyPosition(this);
         }
     };
 
     // -------------------------------------------------------------
-    // 關卡 6：金幣大狂歡收集戰 (大小金錢/紙鈔與不同分數)
+    // 關卡 6：金幣大狂歡收集戰 (金幣獨立計分與名次判定，不加進總分)
     // -------------------------------------------------------------
     function Stage6Scene() { Phaser.Scene.call(this, { key: 'Stage6Scene' }); }
     Stage6Scene.prototype = Object.create(Phaser.Scene.prototype);
-    Stage6Scene.prototype.preload = function() { initTextures(this); };
     Stage6Scene.prototype.create = function() {
         this.isReady = false;
         this.isEnded = false;
-
         createRichBackground(this);
         createInGameScoreboard(this);
 
@@ -1751,56 +1558,47 @@
 
         this.players = [];
         let spawnPos = [{x:200,y:600}, {x:1080,y:600}, {x:260,y:460}, {x:1020,y:460}];
-
         for (let i = 1; i <= 4; i++) {
             let p = this.physics.add.sprite(spawnPos[i-1].x, spawnPos[i-1].y, 'p' + i + '_walk_1');
             p.pIndex = i; p.alive = true; p.coinsCollected = 0;
             p.setCollideWorldBounds(true, 0, 0, false);
             this.physics.add.collider(p, this.platforms);
             p.play('p' + i + '_run');
+
+            p.coinText = this.add.text(p.x, p.y - 42, '金幣: 0', {
+                fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#ffd700', fontWeight: '900', stroke: '#000', strokeThickness: 4
+            }).setOrigin(0.5);
+
             this.players.push(p);
         }
-
         this.physics.add.collider(this.players, this.players);
-
         this.wasd = this.input.keyboard.addKeys({ up: 'W', left: 'A', right: 'D' });
         this.coinsGroup = this.physics.add.group();
 
-        this.coinScoreText = this.add.text(640, 75, '小鈔票(1分) | 大金錢包(3分)', {
-            fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#2ecc71', fontWeight: '900', stroke: '#000', strokeThickness: 4
-        }).setOrigin(0.5);
-
         startStageBuffer(this, '關卡 6：金幣大狂歡收集戰', () => { 
             this.isReady = true; 
-
-            // 生成小鈔票
             this.time.addEvent({
                 delay: 500,
                 callback: () => {
                     if (!this.isReady || this.isEnded) return;
                     let coin = this.coinsGroup.create(Phaser.Math.Between(100, 1180), 0, 'coin_small');
                     coin.coinValue = 1;
-                    coin.setBounce(0.6);
-                    coin.setCollideWorldBounds(true);
+                    coin.setBounce(0.6).setCollideWorldBounds(true);
                     coin.setVelocity(Phaser.Math.Between(-120, 120), Phaser.Math.Between(100, 250));
-
-                    createCoolItemEffect(this, coin, 0x2ecc71);
+                    createCoolItemEffect(this, coin, 0xffd700);
                 },
                 loop: true
             });
 
-            // 生成稀有大金錢包
             this.time.addEvent({
                 delay: 2500,
                 callback: () => {
                     if (!this.isReady || this.isEnded) return;
                     let coin = this.coinsGroup.create(Phaser.Math.Between(150, 1130), 0, 'coin_big');
                     coin.coinValue = 3;
-                    coin.setBounce(0.7);
-                    coin.setCollideWorldBounds(true);
+                    coin.setBounce(0.7).setCollideWorldBounds(true);
                     coin.setVelocity(Phaser.Math.Between(-180, 180), Phaser.Math.Between(150, 300));
-
-                    createCoolItemEffect(this, coin, 0xf1c40f);
+                    createCoolItemEffect(this, coin, 0xff4757);
                 },
                 loop: true
             });
@@ -1808,20 +1606,17 @@
             this.time.delayedCall(20000, () => {
                 if (!this.isEnded) {
                     this.isEnded = true;
-                    let maxCoins = -1;
-                    this.players.forEach(p => {
-                        if (p.coinsCollected > maxCoins) maxCoins = p.coinsCollected;
+                    
+                    // 根據收集金幣數量排序分出第一、二、三、四名
+                    let sortedPlayers = [...this.players].sort((a, b) => b.coinsCollected - a.coinsCollected);
+                    let stageRewards = [4, 2, 1, 0]; // 第一名4分、第二名2分、第三名1分、第四名0分
+
+                    sortedPlayers.forEach((p, rank) => {
+                        scores[p.pIndex] += stageRewards[rank]; // 依照名次加分，金幣本身不直接等同總分
+                        if (p.coinText) p.coinText.destroy();
                     });
 
-                    this.players.forEach(p => {
-                        if (p.coinsCollected === maxCoins && maxCoins > 0) {
-                            scores[p.pIndex] += 5;
-                        } else {
-                            scores[p.pIndex] += p.coinsCollected;
-                        }
-                    });
                     updateInGameScoreboard(this);
-
                     this.scene.start('ResultScene');
                 }
             });
@@ -1830,59 +1625,45 @@
         this.players.forEach(p => {
             this.physics.add.overlap(p, this.coinsGroup, (player, coin) => {
                 if (!player.alive || !this.isReady || this.isEnded) return;
-                
-                let val = coin.coinValue || 1;
+                player.coinsCollected += coin.coinValue || 1;
+                if (player.coinText) {
+                    player.coinText.setText('金幣: ' + player.coinsCollected);
+                }
                 destroyCoolItemEffect(coin);
                 coin.destroy();
-
-                player.coinsCollected += val;
                 playSound('powerup');
             }, null, this);
         });
     };
-
     Stage6Scene.prototype.update = function() {
         if (!this.isReady || this.isEnded) return;
-
-        this.coinsGroup.getChildren().forEach(coin => {
-            updateCoolItemPos(coin);
-        });
-
-        let textInfo = this.players.map(p => `P${p.pIndex}: ${p.coinsCollected}分`).join(' | ');
-        this.coinScoreText.setText(textInfo);
-
+        this.coinsGroup.getChildren().forEach(coin => updateCoolItemPos(coin));
+        
         this.players.forEach(p => {
-            if (p.alive && p.y > 730) {
-                eliminatePlayer(this, p);
+            if (p.coinText) {
+                p.coinText.setPosition(p.x, p.y - 42);
             }
         });
 
+        updateAIPlayers(this);
         let p = this.players[myPlayerIndex - 1];
         if (p && p.alive) {
-            if (this.wasd.left.isDown || mobileInput.left) {
-                p.setVelocityX(-260);
-                p.setFlipX(true);
-            } else if (this.wasd.right.isDown || mobileInput.right) {
-                p.setVelocityX(260);
-                p.setFlipX(false);
-            } else {
-                p.setVelocityX(0);
-            }
-
-            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) {
-                p.setVelocityY(-500);
-            }
+            if (this.wasd.left.isDown || mobileInput.left) { p.setVelocityX(-260); p.setFlipX(true); }
+            else if (this.wasd.right.isDown || mobileInput.right) { p.setVelocityX(260); p.setFlipX(false); }
+            else { p.setVelocityX(0); }
+            if ((Phaser.Input.Keyboard.JustDown(this.wasd.up) || mobileInput.jumpJustDown) && p.body.touching.down) { p.setVelocityY(-500); }
             mobileInput.jumpJustDown = false;
+            syncMyPosition(this);
         }
     };
 
     // -------------------------------------------------------------
-    // 結算與 30 分冠軍判定 Scene
+    // 結算與 30 分冠軍判定
     // -------------------------------------------------------------
     function ResultScene() { Phaser.Scene.call(this, { key: 'ResultScene' }); }
     ResultScene.prototype = Object.create(Phaser.Scene.prototype);
     ResultScene.prototype.create = function() {
-        toggleMobileControls(false); // 結算與回主畫面時隱藏虛擬按鈕
+        toggleMobileControls(false);
         if (window.domRoomInput) window.domRoomInput.style.display = 'none';
         initAnimations(this);
         createRichBackground(this);
@@ -1904,7 +1685,6 @@
         }
 
         if (winnerIndex) {
-            // 總冠軍誕生
             let winnerSprite = this.add.sprite(640, 150, 'p' + winnerIndex + '_walk_1').setScale(3.5);
             winnerSprite.play('p' + winnerIndex + '_run');
 
@@ -1919,7 +1699,6 @@
                 this.scene.start('TitleScene');
             });
         } else {
-            // 單關卡結算
             this.add.text(640, 110, '關卡結算！', { fontFamily: CUTE_FONT_FAMILY, fontSize: '46px', fill: '#f1c40f', fontWeight: '900', stroke: '#000', strokeThickness: 7 }).setOrigin(0.5);
 
             let totalTopCount = topPlayerIndices.length;
@@ -1938,8 +1717,9 @@
             this.add.text(640, 420, '進入下一關', { fontFamily: CUTE_FONT_FAMILY, fontSize: '26px', fill: '#fff', fontWeight: '900' }).setOrigin(0.5);
 
             nextBtn.on('pointerdown', () => {
-                currentStageIndex = (currentStageIndex % 6) + 1; // 循環 6 個關卡
-                toggleMobileControls(true); // 重新顯示虛擬按鈕
+                currentStageIndex = (currentStageIndex % 6) + 1;
+                toggleMobileControls(true);
+                playSound('powerup');
                 this.scene.start('Stage' + currentStageIndex + 'Scene');
             });
         }
