@@ -117,70 +117,7 @@
             transform: scale(0.92);
         }
 
-        #login-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 15, 26, 0.92);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-            backdrop-filter: blur(8px);
-        }
-        .login-card {
-            background: rgba(30, 30, 46, 0.95);
-            border: 4px solid #ff7675;
-            border-radius: 20px;
-            padding: 25px 35px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-            width: 400px;
-            max-width: 90%;
-        }
-        .login-card h2 {
-            margin-top: 0;
-            color: #f1c40f;
-            font-size: 26px;
-            margin-bottom: 15px;
-        }
-        .login-input {
-            width: 100%;
-            height: 44px;
-            background: #2d3436;
-            border: 3px solid #dfe6e9;
-            border-radius: 12px;
-            color: #fff;
-            font-size: 18px;
-            font-weight: 800;
-            text-align: center;
-            margin-bottom: 15px;
-            outline: none;
-        }
-        .login-input:focus {
-            border-color: #00b894;
-        }
-        .login-btn {
-            width: 100%;
-            height: 46px;
-            background: #00b894;
-            border: none;
-            border-radius: 12px;
-            color: white;
-            font-size: 18px;
-            font-weight: 900;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,184,148,0.4);
-            transition: 0.2s;
-        }
-        .login-btn:hover {
-            background: #55efc4;
-            transform: translateY(-2px);
-        }
-
+        /* 房號輸入框樣式 */
         .room-input-style {
             width: 100px;
             height: 32px;
@@ -199,14 +136,6 @@
 <body>
 
     <div id="game-container">
-        <div id="login-overlay">
-            <div class="login-card">
-                <h2>進入小雞派對</h2>
-                <input type="text" id="player-name-input" class="login-input" placeholder="請輸入你的玩家暱稱" maxlength="10">
-                <button class="login-btn" id="login-submit-btn">進入遊戲大廳</button>
-            </div>
-        </div>
-
         <div id="mobile-controls">
             <div id="joystick-base">
                 <div id="joystick-stick"></div>
@@ -242,7 +171,7 @@
     let roomId = null;
     let myId = 'player_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
     let myPlayerIndex = 1;
-    let myNickname = '玩家';
+    let myNickname = '小雞' + Math.floor(Math.random() * 899 + 100);
     let isHost = false;
     let roomRef = null;
     let aiPlayers = {}; 
@@ -251,20 +180,6 @@
     let mobileInput = { left: false, right: false, jumpJustDown: false, shootJustDown: false };
 
     window.addEventListener('DOMContentLoaded', () => {
-        const loginBtn = document.getElementById('login-submit-btn');
-        const nameInput = document.getElementById('player-name-input');
-        const overlay = document.getElementById('login-overlay');
-
-        nameInput.value = '小雞' + Math.floor(Math.random() * 899 + 100);
-
-        loginBtn.addEventListener('click', () => {
-            let val = nameInput.value.trim();
-            if (val.length > 0) {
-                myNickname = val;
-            }
-            overlay.style.display = 'none';
-        });
-
         setupJoystick();
     });
 
@@ -602,7 +517,7 @@
                     }
                 });
             }
-            if (scene.scene.key === 'TitleScene' && !scene.isTypingRoom) {
+            if (scene.scene.key === 'TitleScene') {
                 scene.scene.restart();
             }
         });
@@ -783,10 +698,62 @@
             default: 'arcade',
             arcade: { gravity: { y: 0 }, debug: false }
         },
-        scene: [TitleScene, Stage1Scene, Stage2Scene, Stage3Scene, Stage4Scene, Stage5Scene, Stage6Scene, ResultScene]
+        scene: [LoginScene, TitleScene, Stage1Scene, Stage2Scene, Stage3Scene, Stage4Scene, Stage5Scene, Stage6Scene, ResultScene]
     };
 
     const game = new Phaser.Game(config);
+
+    // -------------------------------------------------------------
+    // 登入畫面 (LoginScene) - 改用純 Phaser 介面，完美解決黑屏問題
+    // -------------------------------------------------------------
+    function LoginScene() { Phaser.Scene.call(this, { key: 'LoginScene' }); }
+    LoginScene.prototype = Object.create(Phaser.Scene.prototype);
+    LoginScene.prototype.preload = function() {
+        initTextures(this);
+    };
+    LoginScene.prototype.create = function() {
+        toggleMobileControls(false);
+        createRichBackground(this);
+
+        this.add.text(640, 180, '進入小雞派對', {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '42px', fill: '#f1c40f', fontWeight: '900', stroke: '#000', strokeThickness: 6
+        }).setOrigin(0.5);
+
+        this.add.text(640, 260, '您的玩家暱稱：', {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '22px', fill: '#ffffff', fontWeight: '800'
+        }).setOrigin(0.5);
+
+        // 暱稱輸入框外框
+        let boxBg = this.add.rectangle(640, 330, 400, 60, 0x2d3436).setStrokeStyle(4, 0x00b894);
+        let nameText = this.add.text(640, 330, myNickname, {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '26px', fill: '#55efc4', fontWeight: '900'
+        }).setOrigin(0.5);
+
+        // 點擊可以隨機換名字
+        boxBg.setInteractive({ useHandCursor: true });
+        boxBg.on('pointerdown', () => {
+            let list = ['小雞', '霸氣小雞', '特攻小雞', '無敵小雞', '閃電小雞', '神射小雞', '派對小雞', '超人小雞'];
+            myNickname = list[Math.floor(Math.random() * list.length)] + Math.floor(Math.random() * 899 + 100);
+            nameText.setText(myNickname);
+            playSound('beep');
+        });
+
+        this.add.text(640, 385, '( 點擊框框可隨機更換暱稱 )', {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '14px', fill: '#b2bec3', fontWeight: '700'
+        }).setOrigin(0.5);
+
+        // 開始進入大廳按鈕
+        let submitBtn = this.add.rectangle(640, 480, 320, 60, 0x00b894).setInteractive({ useHandCursor: true });
+        submitBtn.setStrokeStyle(3, 0xffffff);
+        this.add.text(640, 480, '進入遊戲大廳', {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '24px', fill: '#ffffff', fontWeight: '900'
+        }).setOrigin(0.5);
+
+        submitBtn.on('pointerdown', () => {
+            playSound('powerup');
+            this.scene.start('TitleScene');
+        });
+    };
 
     // -------------------------------------------------------------
     // 標題大廳畫面 (TitleScene)
@@ -798,13 +765,11 @@
         initAnimations(this);
         createRichBackground(this);
 
-        this.isTypingRoom = false;
-
         this.add.text(640, 45, '小雞 4 人派對大賽', {
             fontFamily: CUTE_FONT_FAMILY, fontSize: '40px', fill: '#ff7675', fontWeight: '900', stroke: '#fff', strokeThickness: 5
         }).setOrigin(0.5);
 
-        this.add.text(640, 85, '目標獲得 30 分奪下總冠軍！', {
+        this.add.text(640, 85, `玩家：${myNickname} | 目標獲得 30 分奪下總冠軍！`, {
             fontFamily: CUTE_FONT_FAMILY, fontSize: '17px', fill: '#dfe6e9', fontWeight: '800', stroke: '#000', strokeThickness: 4
         }).setOrigin(0.5);
 
@@ -812,15 +777,8 @@
             fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' 
         }).setOrigin(0, 0.5);
 
-        // 改用直接生成原生 HTML 輸入框並用 Phaser DOM 放置，避開 preload 報錯
         let htmlInputStr = '<input type="text" id="room-code-input" maxlength="4" placeholder="4位房號" class="room-input-style">';
         let inputDom = this.add.dom(840, 125).createFromHTML(htmlInputStr);
-
-        let inputElement = document.getElementById('room-code-input');
-        if (inputElement) {
-            inputElement.addEventListener('focus', () => { this.isTypingRoom = true; });
-            inputElement.addEventListener('blur', () => { this.isTypingRoom = false; });
-        }
 
         let playerBoxes = [
             { index: 1, name: playerNames[1], color: 0xffffff, textColor: '#ffffff', key: 'p1', x: 230, y: 260 },
