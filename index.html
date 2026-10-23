@@ -552,7 +552,6 @@
         }
     }
 
-    // 最佳化連線同步：大幅降低抖動，只在移動顯著時同步
     function syncMyPosition(scene) {
         if (!roomId || !scene.players || !scene.players[myPlayerIndex - 1]) return;
         let p = scene.players[myPlayerIndex - 1];
@@ -574,7 +573,6 @@
         }
     }
 
-    // 提高插值平滑度，消除不同頻延遲感
     function updateRemotePlayersLerp(scene) {
         if (!scene.players) return;
         scene.players.forEach((p) => {
@@ -750,7 +748,7 @@
     };
 
     // -------------------------------------------------------------
-    // 標題大廳畫面 (TitleScene) - 完美排版，電腦/手機皆有一鍵加入與建立房間
+    // 標題大廳畫面 (TitleScene) - 完美修正文字重疊與加入/建立房間按鈕
     // -------------------------------------------------------------
     function TitleScene() { Phaser.Scene.call(this, { key: 'TitleScene' }); }
     TitleScene.prototype = Object.create(Phaser.Scene.prototype);
@@ -759,27 +757,29 @@
         initAnimations(this);
         createRichBackground(this);
 
-        this.add.text(640, 45, '小雞 4 人派對大賽', {
-            fontFamily: CUTE_FONT_FAMILY, fontSize: '40px', fill: '#ff7675', fontWeight: '900', stroke: '#fff', strokeThickness: 5
+        this.add.text(640, 40, '小雞 4 人派對大賽', {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '38px', fill: '#ff7675', fontWeight: '900', stroke: '#fff', strokeThickness: 5
         }).setOrigin(0.5);
 
-        this.add.text(640, 85, `玩家：${myNickname} | 目標獲得 30 分奪下總冠軍！`, {
-            fontFamily: CUTE_FONT_FAMILY, fontSize: '17px', fill: '#dfe6e9', fontWeight: '800', stroke: '#000', strokeThickness: 4
+        this.add.text(640, 80, `玩家：${myNickname} | 目標獲得 30 分奪下總冠軍！`, {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#dfe6e9', fontWeight: '800', stroke: '#000', strokeThickness: 4
         }).setOrigin(0.5);
 
-        this.add.text(125, 125, '派對房號：' + (roomId ? (roomId + (isHost ? ' (房主)' : ` (P${myPlayerIndex})`)) : '未加入房間'), { 
-            fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#ffffff', fontWeight: '900' 
+        // 左側顯示目前房號資訊與複製按鈕
+        this.add.text(80, 125, '派對房號：' + (roomId ? (roomId + (isHost ? ' (房主)' : ` (P${myPlayerIndex})`)) : '未加入房間'), { 
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' 
         }).setOrigin(0, 0.5);
 
         if (roomId) {
-            let copyBtn = this.add.rectangle(1040, 125, 110, 34, 0xfab1a0).setInteractive({ useHandCursor: true });
-            this.add.text(1040, 125, '複製房號', { fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#d35400', fontWeight: '900' }).setOrigin(0.5);
+            let copyBtn = this.add.rectangle(340, 125, 90, 32, 0xfab1a0).setInteractive({ useHandCursor: true });
+            this.add.text(340, 125, '複製房號', { fontFamily: CUTE_FONT_FAMILY, fontSize: '12px', fill: '#d35400', fontWeight: '900' }).setOrigin(0.5);
             copyBtn.on('pointerdown', () => {
                 navigator.clipboard.writeText(roomId);
                 alert('4 位數派對房號已複製：' + roomId);
             });
         }
 
+        // 4位玩家準備區塊
         let playerBoxes = [
             { index: 1, name: playerNames[1], color: 0xffffff, textColor: '#ffffff', key: 'p1', x: 230, y: 260 },
             { index: 2, name: playerNames[2], color: 0x74b9ff, textColor: '#74b9ff', key: 'p2', x: 500, y: 260 },
@@ -788,15 +788,15 @@
         ];
 
         playerBoxes.forEach(p => {
-            this.add.rectangle(p.x, p.y, 230, 160, 0x2d3436, 0.9).setStrokeStyle(3, p.color);
+            this.add.rectangle(p.x, p.y, 230, 150, 0x2d3436, 0.9).setStrokeStyle(3, p.color);
             if (joinedPlayers[p.index]) {
-                this.add.text(p.x, p.y - 52, p.name, { fontFamily: CUTE_FONT_FAMILY, fontSize: '17px', fill: p.textColor, fontWeight: '900' }).setOrigin(0.5);
-                let chickenSprite = this.add.sprite(p.x, p.y - 10, p.key + '_walk_1').setScale(1.6);
+                this.add.text(p.x, p.y - 48, p.name, { fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: p.textColor, fontWeight: '900' }).setOrigin(0.5);
+                let chickenSprite = this.add.sprite(p.x, p.y - 8, p.key + '_walk_1').setScale(1.5);
                 chickenSprite.play(p.key + '_run');
 
                 let isReady = readyStatus[p.index];
-                let readyBtn = this.add.rectangle(p.x, p.y + 40, 130, 30, isReady ? 0x00b894 : 0x636e72).setInteractive({ useHandCursor: true });
-                this.add.text(p.x, p.y + 40, isReady ? '已準備就緒' : '點擊準備', { fontFamily: CUTE_FONT_FAMILY, fontSize: '12px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
+                let readyBtn = this.add.rectangle(p.x, p.y + 38, 120, 28, isReady ? 0x00b894 : 0x636e72).setInteractive({ useHandCursor: true });
+                this.add.text(p.x, p.y + 38, isReady ? '已準備就緒' : '點擊準備', { fontFamily: CUTE_FONT_FAMILY, fontSize: '12px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
 
                 readyBtn.on('pointerdown', () => {
                     if (p.index === myPlayerIndex) {
@@ -807,13 +807,13 @@
                     }
                 });
             } else {
-                this.add.text(p.x, p.y - 10, '等待玩家加入...', { fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#b2bec3', fontWeight: '700' }).setOrigin(0.5);
+                this.add.text(p.x, p.y - 8, '等待玩家加入...', { fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#b2bec3', fontWeight: '700' }).setOrigin(0.5);
             }
         });
 
-        // 建立房間按鈕
-        let createBtn = this.add.rectangle(450, 485, 300, 50, 0x0984e3).setInteractive({ useHandCursor: true });
-        this.add.text(450, 485, '建立 4 人派對房', { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
+        // 建立 4 人派對房按鈕
+        let createBtn = this.add.rectangle(430, 485, 300, 50, 0x0984e3).setInteractive({ useHandCursor: true });
+        this.add.text(430, 485, '建立 4 人派對房', { fontFamily: CUTE_FONT_FAMILY, fontSize: '19px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
         createBtn.on('pointerdown', () => {
             roomId = Math.floor(1000 + Math.random() * 9000).toString();
             isHost = true;
@@ -832,9 +832,9 @@
             this.scene.restart();
         });
 
-        // 加入房間按鈕
-        let joinBtn = this.add.rectangle(830, 485, 300, 50, 0x3498db).setInteractive({ useHandCursor: true });
-        this.add.text(830, 485, '輸入房號加入房間', { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
+        // 輸入房號加入房間按鈕 (完美排版，絕不重疊)
+        let joinBtn = this.add.rectangle(850, 485, 300, 50, 0x3498db).setInteractive({ useHandCursor: true });
+        this.add.text(850, 485, '輸入房號加入房間', { fontFamily: CUTE_FONT_FAMILY, fontSize: '19px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
         joinBtn.on('pointerdown', () => {
             let code = prompt('請輸入 4 位數房號：', '');
             if (code && code.trim().length === 4) {
@@ -887,10 +887,10 @@
         let startBtnBgColor = canStart ? 0x00b894 : 0x636e72;
         let startBtnTextStr = (!roomId || isHost) ? (allReady ? '開始遊戲 / 進入關卡' : '等待所有玩家準備...') : '等待房主開始遊戲...';
 
-        let startBtn = this.add.rectangle(640, 570, 340, 56, startBtnBgColor);
+        let startBtn = this.add.rectangle(640, 570, 340, 52, startBtnBgColor);
         if (canStart) startBtn.setInteractive({ useHandCursor: true });
         
-        this.add.text(640, 570, startBtnTextStr, { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
+        this.add.text(640, 570, startBtnTextStr, { fontFamily: CUTE_FONT_FAMILY, fontSize: '19px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
 
         if (canStart) {
             startBtn.on('pointerdown', () => {
