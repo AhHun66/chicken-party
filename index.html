@@ -48,9 +48,6 @@
             position: relative;
         }
 
-        /* -------------------------------------------------------------
-           手機虛擬搖桿與按鈕樣式 (僅在觸控裝置/小螢幕啟用)
-        ------------------------------------------------------------- */
         #mobile-controls {
             display: none;
             position: absolute;
@@ -62,14 +59,12 @@
             z-index: 50;
         }
 
-        /* 僅在行動裝置或觸控螢幕開啟手機控制 UI */
         @media (hover: none) and (pointer: coarse) {
             #mobile-controls.active {
                 display: block;
             }
         }
 
-        /* 左側搖桿底座 */
         #joystick-base {
             position: absolute;
             bottom: 30px;
@@ -84,7 +79,6 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
         }
 
-        /* 搖桿蘑菇頭 */
         #joystick-stick {
             position: absolute;
             top: 50%;
@@ -98,7 +92,6 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.4);
         }
 
-        /* 右側開槍按鈕 */
         #btn-shoot {
             position: absolute;
             bottom: 40px;
@@ -125,7 +118,6 @@
             transform: scale(0.92);
         }
 
-        /* 玩家登入彈窗 */
         #login-overlay {
             position: absolute;
             top: 0;
@@ -193,9 +185,7 @@
 </head>
 <body>
 
-    <!-- 遊戲主畫面容器 -->
     <div id="game-container">
-        <!-- 玩家暱稱登入遮罩 -->
         <div id="login-overlay">
             <div class="login-card">
                 <h2>進入小雞派對</h2>
@@ -204,7 +194,6 @@
             </div>
         </div>
 
-        <!-- 手機傳說對決風格虛擬搖桿 UI (預設隱藏，僅手機啟用) -->
         <div id="mobile-controls">
             <div id="joystick-base">
                 <div id="joystick-stick"></div>
@@ -214,9 +203,6 @@
     </div>
 
 <script>
-    // -------------------------------------------------------------
-    // Firebase 即時資料庫設定
-    // -------------------------------------------------------------
     const firebaseConfig = {
         databaseURL: "https://fir-config-9fe52-default-rtdb.asia-southeast1.firebasedatabase.app"
     };
@@ -227,9 +213,6 @@
 
     const CUTE_FONT_FAMILY = "'M PLUS Rounded 1c', 'Fredoka', 'Comic Sans MS', sans-serif";
 
-    // -------------------------------------------------------------
-    // 全域變數
-    // -------------------------------------------------------------
     let scores = { 1: 0, 2: 0, 3: 0, 4: 0 };
     let currentStageIndex = 1;
     
@@ -252,12 +235,8 @@
     let aiPlayers = {}; 
     let lastSyncTime = 0;
 
-    // 行動端操控輸入狀態
     let mobileInput = { left: false, right: false, jumpJustDown: false, shootJustDown: false };
 
-    // -------------------------------------------------------------
-    // 網頁載入與登入邏輯
-    // -------------------------------------------------------------
     window.addEventListener('DOMContentLoaded', () => {
         const loginBtn = document.getElementById('login-submit-btn');
         const nameInput = document.getElementById('player-name-input');
@@ -276,9 +255,6 @@
         setupJoystick();
     });
 
-    // -------------------------------------------------------------
-    // 傳說對決風格：動態搖桿邏輯 (含蘑菇頭向上跳躍)
-    // -------------------------------------------------------------
     function setupJoystick() {
         const base = document.getElementById('joystick-base');
         const stick = document.getElementById('joystick-stick');
@@ -289,8 +265,8 @@
         let activeTouchId = null;
         let baseCenterX = 0;
         let baseCenterY = 0;
-        const maxRadius = 40; // 蘑菇頭最大拖曳距離
-        let jumpTriggered = false; // 防止重複觸發跳躍
+        const maxRadius = 40;
+        let jumpTriggered = false;
 
         const resetStick = () => {
             stick.style.transform = `translate(-50%, -50%)`;
@@ -312,11 +288,9 @@
 
             stick.style.transform = `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px))`;
 
-            // 左右移動判定
             mobileInput.left = deltaX < -15;
             mobileInput.right = deltaX > 15;
 
-            // 蘑菇頭往上推 (Y 軸偏移量小於 -25px) 觸發跳躍
             if (deltaY < -25 && !jumpTriggered) {
                 mobileInput.jumpJustDown = true;
                 jumpTriggered = true;
@@ -359,7 +333,6 @@
             }
         });
 
-        // 右側開槍按鈕綁定
         if (btnShoot) {
             btnShoot.addEventListener('touchstart', (e) => {
                 e.preventDefault();
@@ -375,7 +348,6 @@
     function toggleMobileControls(show) {
         let mc = document.getElementById('mobile-controls');
         if (mc) {
-            // 只有當前為移動裝置/觸控螢幕時才切換顯示類別
             const isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
             if (show && isTouchDevice) {
                 mc.classList.add('active');
@@ -385,9 +357,6 @@
         }
     }
 
-    // -------------------------------------------------------------
-    // 音效產生器 (Web Audio API)
-    // -------------------------------------------------------------
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playSound(type) {
         try {
@@ -432,9 +401,6 @@
         } catch(e){}
     }
 
-    // -------------------------------------------------------------
-    // 背景畫面
-    // -------------------------------------------------------------
     function createRichBackground(scene) {
         let bg = scene.add.graphics();
         bg.fillGradientStyle(0x0a0a16, 0x0a0a16, 0x16162e, 0x16162e, 1);
@@ -449,9 +415,6 @@
         }
     }
 
-    // -------------------------------------------------------------
-    // 遊戲內計分板
-    // -------------------------------------------------------------
     function createInGameScoreboard(scene) {
         let barBg = scene.add.graphics();
         barBg.fillStyle(0x1e1e2e, 0.85);
@@ -478,9 +441,6 @@
         }
     }
 
-    // -------------------------------------------------------------
-    // 道具特效
-    // -------------------------------------------------------------
     function createCoolItemEffect(scene, item, colorHex) {
         let ringG = scene.add.graphics();
         ringG.lineStyle(2.5, colorHex, 0.9);
@@ -515,9 +475,6 @@
         }
     }
 
-    // -------------------------------------------------------------
-    // 材質與貼圖初始化
-    // -------------------------------------------------------------
     function initTextures(scene) {
         if (scene.textures.exists('p1_walk_1')) return;
         let g = scene.make.graphics({ x: 0, y: 0, add: false });
@@ -598,10 +555,6 @@
         g.fillStyle(0xf1c40f, 1); g.fillCircle(4, 4, 4); g.generateTexture('particle_fire', 8, 8); g.clear();
         g.fillStyle(0x3498db, 1); g.fillCircle(4, 4, 4); g.generateTexture('particle_shield', 8, 8); g.clear();
         g.fillStyle(0x2ecc71, 1); g.fillCircle(4, 4, 4); g.generateTexture('particle_spread', 8, 8); g.clear();
-        
-        g.fillStyle(0xf1c40f, 1);
-        g.fillTriangle(6, 0, 8, 4, 12, 4); g.fillTriangle(6, 12, 8, 8, 12, 8);
-        g.generateTexture('star', 12, 12); g.clear();
 
         g.fillStyle(0x3498db, 1); g.fillCircle(16, 16, 12);
         g.fillStyle(0x00ffff, 0.7); g.fillCircle(16, 16, 8);
@@ -679,9 +632,6 @@
         });
     }
 
-    // -------------------------------------------------------------
-    // Firebase 即時同步連線監聽 (含平滑補間 Lerp 優化)
-    // -------------------------------------------------------------
     function setupFirebaseListeners(scene) {
         if (!roomId) return;
         roomRef = db.ref('rooms/' + roomId);
@@ -760,9 +710,6 @@
         });
     }
 
-    // -------------------------------------------------------------
-    // Phaser 遊戲引擎設定
-    // -------------------------------------------------------------
     const config = {
         type: Phaser.AUTO,
         width: 1280,
@@ -937,32 +884,39 @@
             });
         }
 
-        let startBtn = this.add.rectangle(640, 625, 340, 56, 0x00b894).setInteractive({ useHandCursor: true });
-        this.add.text(640, 625, '開始遊戲 / 進入關卡', { fontFamily: CUTE_FONT_FAMILY, fontSize: '24px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
-        startBtn.on('pointerdown', () => {
-            aiPlayers = {};
-            for (let i = 1; i <= 4; i++) {
-                if (!joinedPlayers[i]) {
-                    aiPlayers[i] = true;
-                    playerNames[i] = `AI P${i}`;
-                }
-            }
+        // 修改連線邏輯：單機玩家或連線房主 (P1) 才可直接按下開始，一般成員顯示等待房主開始
+        let canStart = !roomId || isHost;
+        let startBtnBgColor = canStart ? 0x00b894 : 0x636e72;
+        let startBtnTextStr = canStart ? '開始遊戲 / 進入關卡' : '等待房主開始遊戲...';
 
-            if (roomId && isHost) {
-                db.ref(`rooms/${roomId}/state`).set({ currentStage: 1 });
-            } else {
-                playSound('start');
-                if (window.domRoomInput) window.domRoomInput.style.display = 'none';
-                toggleMobileControls(true);
-                currentStageIndex = 1;
-                this.scene.start('Stage1Scene');
-            }
-        });
+        let startBtn = this.add.rectangle(640, 625, 340, 56, startBtnBgColor);
+        if (canStart) startBtn.setInteractive({ useHandCursor: true });
+        
+        this.add.text(640, 625, startBtnTextStr, { fontFamily: CUTE_FONT_FAMILY, fontSize: '22px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
+
+        if (canStart) {
+            startBtn.on('pointerdown', () => {
+                aiPlayers = {};
+                for (let i = 1; i <= 4; i++) {
+                    if (!joinedPlayers[i]) {
+                        aiPlayers[i] = true;
+                        playerNames[i] = `AI P${i}`;
+                    }
+                }
+
+                if (roomId && isHost) {
+                    db.ref(`rooms/${roomId}/state`).set({ currentStage: 1 });
+                } else {
+                    playSound('start');
+                    if (window.domRoomInput) window.domRoomInput.style.display = 'none';
+                    toggleMobileControls(true);
+                    currentStageIndex = 1;
+                    this.scene.start('Stage1Scene');
+                }
+            });
+        }
     };
 
-    // -------------------------------------------------------------
-    // 通用遊戲邏輯函數
-    // -------------------------------------------------------------
     function eliminatePlayer(scene, p) {
         if (!p.alive || scene.isEnded) return;
         if (p.hasShield) {
@@ -1029,18 +983,19 @@
         scene.time.delayedCall(500, () => { scene.scene.start('ResultScene'); });
     }
 
+    // 調高強度的 AI 邏輯
     function updateAIPlayers(scene) {
         scene.players.forEach(p => {
             if (aiPlayers[p.pIndex] && p.alive) {
                 if (!p.aiTimer || scene.time.now > p.aiTimer) {
                     p.aiDir = Phaser.Math.Between(-1, 1);
-                    p.aiTimer = scene.time.now + Phaser.Math.Between(800, 2000);
+                    p.aiTimer = scene.time.now + Phaser.Math.Between(400, 1000);
                 }
-                p.setVelocityX(p.aiDir * 240);
+                p.setVelocityX(p.aiDir * 260);
                 if (p.aiDir !== 0) p.setFlipX(p.aiDir < 0);
 
-                if (p.body.touching.down && Math.random() < 0.035) {
-                    p.setVelocityY(-500);
+                if (p.body.touching.down && Math.random() < 0.08) {
+                    p.setVelocityY(-520);
                 }
             }
         });
@@ -1258,7 +1213,7 @@
     };
 
     // -------------------------------------------------------------
-    // 關卡 3：多平台雷射大亂鬥
+    // 關卡 3：多平台雷射大亂鬥 (強化高智慧 AI 瞄準與射擊)
     // -------------------------------------------------------------
     function Stage3Scene() { Phaser.Scene.call(this, { key: 'Stage3Scene' }); }
     Stage3Scene.prototype = Object.create(Phaser.Scene.prototype);
@@ -1354,10 +1309,8 @@
             }, null, this);
         });
 
-        // 電腦版滑鼠點擊發射子彈
         this.input.on('pointerdown', (pointer) => {
             if (!this.isReady || this.isEnded) return;
-            // 若為行動裝置觸控，開槍由右側按鈕處理
             if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) return;
 
             let p = this.players[myPlayerIndex - 1];
@@ -1386,42 +1339,47 @@
 
         this.players.forEach(p => {
             if (!p.alive) return;
+
+            // AI 邏輯加強：會瞄準最近的目標並更積極發射
             if (aiPlayers[p.pIndex]) {
-                if (!p.aiTimer || time > p.aiTimer) {
-                    p.aiDir = Phaser.Math.Between(-1, 1);
-                    p.aiTimer = time + Phaser.Math.Between(800, 1800);
-                }
-                p.setVelocityX(p.aiDir * 260);
-                if (p.aiDir !== 0) p.setFlipX(p.aiDir < 0);
+                let targets = this.players.filter(pl => pl.alive && pl.pIndex !== p.pIndex);
+                if (targets.length > 0) {
+                    let closest = targets.reduce((prev, curr) => {
+                        let dPrev = Phaser.Math.Distance.Between(p.x, p.y, prev.x, prev.y);
+                        let dCurr = Phaser.Math.Distance.Between(p.x, p.y, curr.x, curr.y);
+                        return dCurr < dPrev ? curr : prev;
+                    });
 
-                if (p.body.touching.down && Math.random() < 0.04) {
-                    p.setVelocityY(-520);
-                }
+                    // 轉向瞄準
+                    p.setFlipX(closest.x < p.x);
+                    if (p.gunSprite) {
+                        let angle = Phaser.Math.Angle.Between(p.x, p.y, closest.x, closest.y);
+                        p.gunSprite.setRotation(angle);
+                    }
 
-                if (!p.aiLastShoot || time - p.aiLastShoot > 1200) {
-                    p.aiLastShoot = time;
-                    let targets = this.players.filter(pl => pl.alive && pl.pIndex !== p.pIndex);
-                    if (targets.length > 0) {
-                        let target = targets[Phaser.Math.Between(0, targets.length - 1)];
-                        let angle = Phaser.Math.Angle.Between(p.x, p.y, target.x, target.y);
-                        let b = this.bullets.create(p.x, p.y, 'bullet');
-                        this.physics.velocityFromRotation(angle, 700, b.body.velocity);
-                        b.ownerIndex = p.pIndex;
-                        b.body.setAllowGravity(false);
-                        playSound('shoot');
+                    // 射擊頻率加快
+                    if (!p.aiLastShoot || time - p.aiLastShoot > 500) {
+                        p.aiLastShoot = time;
+                        let angle = Phaser.Math.Angle.Between(p.x, p.y, closest.x, closest.y);
+                        this.firePlayerBullet(p, angle);
+                    }
+
+                    // 智能跟隨與跳躍
+                    if (Math.abs(closest.x - p.x) > 100) {
+                        p.setVelocityX(closest.x < p.x ? -260 : 260);
+                    }
+                    if (p.body.touching.down && (closest.y < p.y - 50 || Math.random() < 0.05)) {
+                        p.setVelocityY(-520);
                     }
                 }
+            } else if (p.pIndex === myPlayerIndex && p.gunSprite) {
+                let pointer = this.input.activePointer;
+                let worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+                p.gunSprite.setRotation(Phaser.Math.Angle.Between(p.x, p.y, worldPoint.x, worldPoint.y));
             }
 
             if (p.shieldRing) p.shieldRing.setPosition(p.x, p.y);
-            if (p.gunSprite) {
-                p.gunSprite.setPosition(p.x, p.y + 2);
-                if (p.pIndex === myPlayerIndex) {
-                    let pointer = this.input.activePointer;
-                    let worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-                    p.gunSprite.setRotation(Phaser.Math.Angle.Between(p.x, p.y, worldPoint.x, worldPoint.y));
-                }
-            }
+            if (p.gunSprite) p.gunSprite.setPosition(p.x, p.y + 2);
             if (p.alive && p.y > 730) eliminatePlayer(this, p);
         });
 
@@ -1445,7 +1403,6 @@
                 }
             }
 
-            // 手機版右側按鈕射擊（朝向角色面向的方向）
             if (mobileInput.shootJustDown) {
                 let angle = p.flipX ? Math.PI : 0;
                 this.firePlayerBullet(p, angle);
@@ -1458,7 +1415,7 @@
     };
 
     // -------------------------------------------------------------
-    // 關卡 4：傳炸彈大亂鬥 (自動貼身觸碰傳炸彈)
+    // 關卡 4：傳炸彈大亂鬥 (支援二段跳 + 加強 AI 強度)
     // -------------------------------------------------------------
     function Stage4Scene() { Phaser.Scene.call(this, { key: 'Stage4Scene' }); }
     Stage4Scene.prototype = Object.create(Phaser.Scene.prototype);
@@ -1485,6 +1442,7 @@
         for (let i = 1; i <= 4; i++) {
             let p = this.physics.add.sprite(spawnPos[i-1].x, spawnPos[i-1].y, 'p' + i + '_walk_1');
             p.pIndex = i; p.alive = true; p.hasBomb = false; p.stunnedUntil = 0;
+            p.canDoubleJump = true;
             p.targetX = spawnPos[i-1].x; p.targetY = spawnPos[i-1].y;
             p.setCollideWorldBounds(true, 0, 0, false);
             this.physics.add.collider(p, this.platforms);
@@ -1540,7 +1498,6 @@
             this.bombSprite.setPosition(holder.x, holder.y - 35).setVisible(true);
             this.bombText.setPosition(holder.x, holder.y - 55).setText(this.bombTimer.toString()).setVisible(true);
 
-            // 自動貼身觸碰：只要距離其他人 <= 50 像素且過了暈眩期，自動傳給最近的人
             if (time >= holder.stunnedUntil) {
                 let targets = this.players.filter(p => p.alive && p.pIndex !== holder.pIndex);
                 if (targets.length > 0) {
@@ -1580,36 +1537,51 @@
                             return dCurr < dPrev ? curr : prev;
                         });
 
-                        if (closest.x < p.x) { p.setVelocityX(-280); p.setFlipX(true); }
-                        else { p.setVelocityX(280); p.setFlipX(false); }
+                        // 持炸彈 AI 加速追擊
+                        if (closest.x < p.x) { p.setVelocityX(-310); p.setFlipX(true); }
+                        else { p.setVelocityX(310); p.setFlipX(false); }
+
+                        if (p.body.touching.down && (closest.y < p.y - 40 || Math.random() < 0.1)) {
+                            p.setVelocityY(-500);
+                        }
                     }
                 } else {
-                    if (!p.aiTimer || time > p.aiTimer) {
-                        p.aiDir = Phaser.Math.Between(-1, 1);
-                        p.aiTimer = time + Phaser.Math.Between(1000, 2500);
-                    }
-                    p.setVelocityX(p.aiDir * 240);
-                    if (p.aiDir !== 0) p.setFlipX(p.aiDir < 0);
-                }
+                    // 沒拿炸彈的 AI 遠離炸彈持有者
+                    if (holder && holder.alive) {
+                        if (holder.x < p.x) { p.setVelocityX(270); p.setFlipX(false); }
+                        else { p.setVelocityX(-270); p.setFlipX(true); }
 
-                if (p.body.touching.down && Math.random() < 0.035) {
-                    p.setVelocityY(-500);
+                        if (p.body.touching.down && Math.random() < 0.08) {
+                            p.setVelocityY(-500);
+                        }
+                    }
                 }
             }
         });
 
         let p = this.players[myPlayerIndex - 1];
         if (p && p.alive) {
+            if (p.body.touching.down) {
+                p.canDoubleJump = true;
+            }
+
             if (time < p.stunnedUntil) {
                 p.setVelocityX(0);
             } else {
-                if (this.keys.left.isDown || mobileInput.left) { p.setVelocityX(-260); p.setFlipX(true); }
-                else if (this.keys.right.isDown || mobileInput.right) { p.setVelocityX(260); p.setFlipX(false); }
+                if (this.keys.left.isDown || mobileInput.left) { p.setVelocityX(-280); p.setFlipX(true); }
+                else if (this.keys.right.isDown || mobileInput.right) { p.setVelocityX(280); p.setFlipX(false); }
                 else { p.setVelocityX(0); }
             }
 
-            if ((Phaser.Input.Keyboard.JustDown(this.keys.space) || mobileInput.jumpJustDown) && p.body.touching.down && time >= p.stunnedUntil) { 
-                p.setVelocityY(-500); 
+            // 支持二段跳躍
+            if ((Phaser.Input.Keyboard.JustDown(this.keys.space) || mobileInput.jumpJustDown) && time >= p.stunnedUntil) { 
+                if (p.body.touching.down) {
+                    p.setVelocityY(-500);
+                } else if (p.canDoubleJump) {
+                    p.setVelocityY(-460);
+                    p.canDoubleJump = false;
+                    playSound('beep');
+                }
             }
             mobileInput.jumpJustDown = false;
             syncMyPosition(this);
@@ -1617,7 +1589,7 @@
     };
 
     // -------------------------------------------------------------
-    // 關卡 5：高難度雷射牆夾擊障礙
+    // 關卡 5：高難度雷射牆夾擊障礙 (修復精確觸碰雷射判定)
     // -------------------------------------------------------------
     function Stage5Scene() { Phaser.Scene.call(this, { key: 'Stage5Scene' }); }
     Stage5Scene.prototype = Object.create(Phaser.Scene.prototype);
@@ -1671,16 +1643,27 @@
                 loop: true
             });
         });
+
+        // 加入精確物理重疊判定
+        this.players.forEach(p => {
+            this.physics.add.overlap(p, this.laserWalls, (player, wall) => {
+                if (player.alive && this.isReady && !this.isEnded) {
+                    eliminatePlayer(this, player);
+                }
+            }, null, this);
+        });
     };
     Stage5Scene.prototype.update = function() {
         if (!this.isReady || this.isEnded) return;
         checkAlivePlayers(this);
         updateRemotePlayersLerp(this);
+
         this.laserWalls.getChildren().forEach(wall => {
-            this.players.forEach(p => {
-                if (p.alive && Phaser.Math.Distance.Between(p.x, p.y, wall.x, wall.y) < 40) eliminatePlayer(this, p);
-            });
+            if (wall.x < -100 || wall.x > 1380) {
+                wall.destroy();
+            }
         });
+
         updateAIPlayers(this);
         let p = this.players[myPlayerIndex - 1];
         if (p && p.alive) {
