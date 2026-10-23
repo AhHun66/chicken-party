@@ -181,7 +181,6 @@
             transform: translateY(-2px);
         }
 
-        /* 完美適配各裝置的房號輸入框樣式 (使用 Phaser DOM 解決跑版與大小不一) */
         .room-input-style {
             width: 100% !important;
             height: 100% !important;
@@ -455,40 +454,6 @@
         }
     }
 
-    function createCoolItemEffect(scene, item, colorHex) {
-        let ringG = scene.add.graphics();
-        ringG.lineStyle(2.5, colorHex, 0.9);
-        
-        for (let a = 0; a < Math.PI * 2; a += Math.PI / 2) {
-            ringG.beginPath();
-            ringG.arc(0, 0, 22, a, a + Math.PI / 3, false);
-            ringG.strokePath();
-        }
-
-        scene.tweens.add({
-            targets: ringG,
-            angle: 360,
-            duration: 2500,
-            repeat: -1,
-            ease: 'Linear'
-        });
-
-        item.coolRing = ringG;
-    }
-
-    function updateCoolItemPos(item) {
-        if (item && item.coolRing) {
-            item.coolRing.setPosition(item.x, item.y);
-        }
-    }
-
-    function destroyCoolItemEffect(item) {
-        if (item && item.coolRing) {
-            item.coolRing.destroy();
-            item.coolRing = null;
-        }
-    }
-
     function initTextures(scene) {
         if (scene.textures.exists('p1_walk_1')) return;
         let g = scene.make.graphics({ x: 0, y: 0, add: false });
@@ -533,12 +498,6 @@
         g.fillStyle(0xffffff, 0.9); g.fillCircle(9, 9, 2);
         g.generateTexture('coin_small', 24, 24); g.clear();
 
-        g.fillStyle(0xe67e22, 1); g.fillCircle(20, 20, 18);
-        g.fillStyle(0xf1c40f, 1); g.fillCircle(20, 20, 14);
-        g.fillStyle(0xffeaa7, 1); g.fillCircle(20, 20, 8);
-        g.fillStyle(0xffffff, 1); g.fillCircle(15, 15, 3);
-        g.generateTexture('coin_big', 40, 40); g.clear();
-
         let cx = 18, cy = 18, teeth = 8, outerR = 17, innerR = 11;
         g.fillStyle(0xc0392b, 1);
         g.beginPath();
@@ -565,28 +524,6 @@
         g.fillStyle(0xe74c3c, 1); g.fillRect(14, 2, 4, 6);
         g.fillStyle(0xf1c40f, 1); g.fillCircle(16, 2, 3);
         g.generateTexture('bomb', 32, 32); g.clear();
-
-        g.fillStyle(0xf1c40f, 1); g.fillCircle(4, 4, 4); g.generateTexture('particle_fire', 8, 8); g.clear();
-        g.fillStyle(0x3498db, 1); g.fillCircle(4, 4, 4); g.generateTexture('particle_shield', 8, 8); g.clear();
-        g.fillStyle(0x2ecc71, 1); g.fillCircle(4, 4, 4); g.generateTexture('particle_spread', 8, 8); g.clear();
-
-        g.fillStyle(0x3498db, 1); g.fillCircle(16, 16, 12);
-        g.fillStyle(0x00ffff, 0.7); g.fillCircle(16, 16, 8);
-        g.fillStyle(0xffffff, 0.95); g.fillCircle(12, 12, 3);
-        g.generateTexture('item_shield', 32, 32); g.clear();
-
-        g.fillStyle(0x222222, 1); g.fillRect(0, 0, 32, 32);
-        g.lineStyle(2, 0xf1c40f, 1); g.strokeRect(2, 2, 28, 28);
-        g.fillStyle(0xf1c40f, 1);
-        g.beginPath(); g.moveTo(18, 4); g.lineTo(8, 17); g.lineTo(15, 17); g.lineTo(12, 28); g.lineTo(24, 13); g.lineTo(17, 13); g.closePath(); g.fill();
-        g.generateTexture('item_rapid', 32, 32); g.clear();
-
-        g.fillStyle(0x1b4d3e, 1); g.fillRoundedRect(2, 2, 28, 28, 6);
-        g.lineStyle(2, 0x2ecc71, 1); g.strokeRoundedRect(2, 2, 28, 28, 6);
-        g.fillStyle(0x2ecc71, 1);
-        g.fillTriangle(16, 6, 25, 22, 7, 22);
-        g.fillStyle(0xffffff, 1); g.fillCircle(16, 15, 3);
-        g.generateTexture('item_spread', 32, 32); g.clear();
     }
 
     function drawCuteChicken(g, bodyColor, combColor, bellyColor, frame) {
@@ -650,6 +587,7 @@
         if (!roomId) return;
         roomRef = db.ref('rooms/' + roomId);
 
+        // 避免在大廳時因為頻繁接收玩家更新導致畫面一直 restart 幹掉輸入框
         roomRef.child('players').on('value', (snapshot) => {
             let data = snapshot.val();
             joinedPlayers = { 1: false, 2: false, 3: false, 4: false };
@@ -665,7 +603,7 @@
                     }
                 });
             }
-            if (scene.scene.key === 'TitleScene') {
+            if (scene.scene.key === 'TitleScene' && !scene.isTypingRoom) {
                 scene.scene.restart();
             }
         });
@@ -694,6 +632,21 @@
                     });
                 }
             });
+            
+            roomRef.child('ai').on('value', (snapshot) => {
+                let aiData = snapshot.val();
+                if (aiData && scene.players) {
+                    Object.keys(aiData).forEach(idx => {
+                        let i = parseInt(idx);
+                        if (aiPlayers[i] && scene.players[i - 1]) {
+                            let aiP = scene.players[i - 1];
+                            aiP.targetX = aiData[i].x;
+                            aiP.targetY = aiData[i].y;
+                            aiP.setFlipX(aiData[i].flipX);
+                        }
+                    });
+                }
+            });
         }
     }
 
@@ -716,14 +669,17 @@
     function updateRemotePlayersLerp(scene) {
         if (!scene.players) return;
         scene.players.forEach((p) => {
-            if (p.pIndex !== myPlayerIndex && !aiPlayers[p.pIndex] && p.alive && p.targetX !== undefined) {
+            if (p.pIndex !== myPlayerIndex && p.alive && p.targetX !== undefined) {
                 p.x = Phaser.Math.Linear(p.x, p.targetX, 0.6);
                 p.y = Phaser.Math.Linear(p.y, p.targetY, 0.6);
             }
         });
     }
 
+    // 關鍵修復：AI 的物理移動與計算統一交給房主 (isHost)，透過 Firebase 廣播給所有玩家，避免不同頻與AI壞掉
     function updateAIPlayers(scene) {
+        if (!isHost && roomId) return; // 非房主不直接算AI物理，只收firebase資料
+        
         scene.players.forEach(p => {
             if (aiPlayers[p.pIndex] && p.alive) {
                 if (!p.aiTimer || scene.time.now > p.aiTimer) {
@@ -736,27 +692,25 @@
                 if (p.body && p.body.touching.down && Math.random() < 0.08) {
                     p.setVelocityY(-520);
                 }
+
+                if (roomId) {
+                    db.ref(`rooms/${roomId}/ai/${p.pIndex}`).set({
+                        x: Math.round(p.x),
+                        y: Math.round(p.y),
+                        flipX: p.flipX
+                    });
+                }
             }
         });
     }
 
     function eliminatePlayer(scene, p) {
         if (!p.alive || scene.isEnded) return;
-        if (p.hasShield) {
-            p.hasShield = false;
-            p.clearTint();
-            if (p.shieldRing) { p.shieldRing.destroy(); p.shieldRing = null; }
-            playSound('powerup');
-            return;
-        }
-
         p.alive = false;
         p.anims.stop();
         playSound('hit');
         p.setTint(0x777777);
-        if (p.shieldRing) { p.shieldRing.destroy(); p.shieldRing = null; }
         if (p.gunSprite) { p.gunSprite.destroy(); p.gunSprite = null; }
-        if (p.statusText) { p.statusText.destroy(); p.statusText = null; }
 
         p.body.checkCollision.none = true;
         p.body.setAllowGravity(true);
@@ -850,6 +804,8 @@
         initAnimations(this);
         createRichBackground(this);
 
+        this.isTypingRoom = false;
+
         this.add.text(640, 45, '小雞 4 人派對大賽', {
             fontFamily: CUTE_FONT_FAMILY, fontSize: '40px', fill: '#ff7675', fontWeight: '900', stroke: '#fff', strokeThickness: 5
         }).setOrigin(0.5);
@@ -862,9 +818,16 @@
             fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' 
         }).setOrigin(0, 0.5);
 
-        // 使用 Phaser DOM Element 完美解決電腦版與手機版輸入框大小和跑位問題
         let inputDom = this.add.dom(840, 125).createFromCache('roomInput');
         inputDom.setDisplaySize(100, 32);
+
+        // 防止使用者在打字時被 Firebase 重新載入畫面中斷
+        inputDom.node.querySelector('input').addEventListener('focus', () => {
+            this.isTypingRoom = true;
+        });
+        inputDom.node.querySelector('input').addEventListener('blur', () => {
+            this.isTypingRoom = false;
+        });
 
         let playerBoxes = [
             { index: 1, name: playerNames[1], color: 0xffffff, textColor: '#ffffff', key: 'p1', x: 230, y: 260 },
@@ -969,7 +932,6 @@
             });
         }
 
-        // 嚴格檢查：必須所有已加入的真實玩家都按準備好，房主才能點擊開始
         let activeJoinedIndices = [];
         for (let i = 1; i <= 4; i++) {
             if (joinedPlayers[i]) activeJoinedIndices.push(i);
@@ -1028,7 +990,7 @@
         let spawnPos = [{x:180,y:570}, {x:260,y:570}, {x:1020,y:570}, {x:1100,y:570}];
         for (let i = 1; i <= 4; i++) {
             let p = this.physics.add.sprite(spawnPos[i-1].x, spawnPos[i-1].y, 'p' + i + '_walk_1');
-            p.pIndex = i; p.alive = true; p.hasShield = false; p.shieldRing = null;
+            p.pIndex = i; p.alive = true;
             p.targetX = spawnPos[i-1].x; p.targetY = spawnPos[i-1].y;
             this.physics.add.collider(p, this.platforms);
             p.play('p' + i + '_run');
@@ -1036,7 +998,6 @@
         }
         this.physics.add.collider(this.players, this.players);
         this.lavas = this.physics.add.group();
-        this.items = this.physics.add.group();
 
         this.time.addEvent({
             delay: 400,
@@ -1191,6 +1152,7 @@
         if (!this.isReady || this.isEnded) return;
         checkAlivePlayers(this);
         updateRemotePlayersLerp(this);
+        updateAIPlayers(this);
 
         this.players.forEach(p => {
             if (!p.alive) return;
@@ -1202,9 +1164,11 @@
                     p.setFlipX(closest.x < p.x);
                     if (p.gunSprite) p.gunSprite.setRotation(angle);
 
-                    if (!p.aiLastShoot || time - p.aiLastShoot > 600) {
-                        p.aiLastShoot = time;
-                        this.firePlayerBullet(p, angle);
+                    if ((!isHost && !roomId) || isHost) {
+                        if (!p.aiLastShoot || time - p.aiLastShoot > 600) {
+                            p.aiLastShoot = time;
+                            this.firePlayerBullet(p, angle);
+                        }
                     }
                 }
             } else if (p.pIndex === myPlayerIndex && p.gunSprite) {
