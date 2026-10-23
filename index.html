@@ -181,11 +181,30 @@
             background: #55efc4;
             transform: translateY(-2px);
         }
+
+        /* 修正手機版房號輸入框跑位問題：改用絕對固定在 UI 介面上 */
+        #room-input-dom {
+            position: absolute;
+            width: 90px;
+            height: 32px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 800;
+            border-radius: 8px;
+            border: 3px solid #ff7675;
+            background-color: #2d3436;
+            color: #ffffff;
+            z-index: 10;
+            display: none;
+        }
     </style>
 </head>
 <body>
 
     <div id="game-container">
+        <!-- 房號輸入框 (固定在遊戲畫布內，隨比例自動縮放) -->
+        <input type="text" id="room-input-dom" maxlength="4" placeholder="4位房號">
+
         <div id="login-overlay">
             <div class="login-card">
                 <h2>進入小雞派對</h2>
@@ -687,7 +706,7 @@
     function syncMyPosition(scene) {
         if (!roomId || !scene.players || !scene.players[myPlayerIndex - 1]) return;
         let now = scene.time.now;
-        if (now - lastSyncTime < 40) return; 
+        if (now - lastSyncTime < 30) return; 
         lastSyncTime = now;
 
         let p = scene.players[myPlayerIndex - 1];
@@ -704,8 +723,8 @@
         if (!scene.players) return;
         scene.players.forEach((p) => {
             if (p.pIndex !== myPlayerIndex && !aiPlayers[p.pIndex] && p.alive && p.targetX !== undefined) {
-                p.x = Phaser.Math.Linear(p.x, p.targetX, 0.35);
-                p.y = Phaser.Math.Linear(p.y, p.targetY, 0.35);
+                p.x = Phaser.Math.Linear(p.x, p.targetX, 0.4);
+                p.y = Phaser.Math.Linear(p.y, p.targetY, 0.4);
             }
         });
     }
@@ -754,31 +773,20 @@
 
         this.add.text(785, 125, '房號:', { fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0, 0.5);
 
-        if (!window.domRoomInput) {
-            window.domRoomInput = document.createElement('input');
-            window.domRoomInput.type = 'text';
-            window.domRoomInput.maxLength = 4;
-            window.domRoomInput.placeholder = '4位房號';
-            window.domRoomInput.style.position = 'absolute';
-            window.domRoomInput.style.width = '90px';
-            window.domRoomInput.style.height = '32px';
-            window.domRoomInput.style.textAlign = 'center';
-            window.domRoomInput.style.fontSize = '14px';
-            window.domRoomInput.style.fontWeight = '800';
-            window.domRoomInput.style.borderRadius = '8px';
-            window.domRoomInput.style.border = '3px solid #ff7675';
-            window.domRoomInput.style.zIndex = '10';
-            document.body.appendChild(window.domRoomInput);
+        // 使用安全的響應式定位更新 DOM 輸入框，防止手機亂跑
+        let roomInputDom = document.getElementById('room-input-dom');
+        if (roomInputDom) {
+            roomInputDom.style.display = 'block';
+            let updateInputPos = () => {
+                let canvasRect = document.querySelector('canvas').getBoundingClientRect();
+                roomInputDom.style.left = (canvasRect.left + canvasRect.width * (845 / 1280)) + 'px';
+                roomInputDom.style.top = (canvasRect.top + canvasRect.height * (110 / 720)) + 'px';
+                roomInputDom.style.width = (canvasRect.width * (100 / 1280)) + 'px';
+                roomInputDom.style.height = (canvasRect.height * (35 / 720)) + 'px';
+            };
+            updateInputPos();
+            window.addEventListener('resize', updateInputPos);
         }
-        window.domRoomInput.style.display = 'block';
-
-        let updateInputPos = () => {
-            let canvasRect = document.querySelector('canvas').getBoundingClientRect();
-            window.domRoomInput.style.left = (canvasRect.left + canvasRect.width * (845 / 1280)) + 'px';
-            window.domRoomInput.style.top = (canvasRect.top + canvasRect.height * (110 / 720)) + 'px';
-        };
-        updateInputPos();
-        window.addEventListener('resize', updateInputPos);
 
         let playerBoxes = [
             { index: 1, name: playerNames[1], color: 0xffffff, textColor: '#ffffff', key: 'p1', x: 230, y: 260 },
@@ -834,7 +842,7 @@
         let joinBtn = this.add.rectangle(640, 548, 340, 50, 0x3498db).setInteractive({ useHandCursor: true });
         this.add.text(640, 548, '加入房間', { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
         joinBtn.on('pointerdown', () => {
-            let val = window.domRoomInput.value.trim();
+            let val = roomInputDom.value.trim();
             if (val.length === 4) {
                 roomId = val;
                 isHost = false;
@@ -866,7 +874,7 @@
                     });
 
                     setupFirebaseListeners(this);
-                    window.domRoomInput.style.display = 'none';
+                    roomInputDom.style.display = 'none';
                     playSound('powerup');
                     this.scene.restart();
                 });
@@ -884,7 +892,6 @@
             });
         }
 
-        // 修改連線邏輯：單機玩家或連線房主 (P1) 才可直接按下開始，一般成員顯示等待房主開始
         let canStart = !roomId || isHost;
         let startBtnBgColor = canStart ? 0x00b894 : 0x636e72;
         let startBtnTextStr = canStart ? '開始遊戲 / 進入關卡' : '等待房主開始遊戲...';
@@ -908,7 +915,7 @@
                     db.ref(`rooms/${roomId}/state`).set({ currentStage: 1 });
                 } else {
                     playSound('start');
-                    if (window.domRoomInput) window.domRoomInput.style.display = 'none';
+                    if (roomInputDom) roomInputDom.style.display = 'none';
                     toggleMobileControls(true);
                     currentStageIndex = 1;
                     this.scene.start('Stage1Scene');
@@ -983,7 +990,6 @@
         scene.time.delayedCall(500, () => { scene.scene.start('ResultScene'); });
     }
 
-    // 調高強度的 AI 邏輯
     function updateAIPlayers(scene) {
         scene.players.forEach(p => {
             if (aiPlayers[p.pIndex] && p.alive) {
@@ -1213,7 +1219,7 @@
     };
 
     // -------------------------------------------------------------
-    // 關卡 3：多平台雷射大亂鬥 (強化高智慧 AI 瞄準與射擊)
+    // 關卡 3：多平台雷射大亂鬥
     // -------------------------------------------------------------
     function Stage3Scene() { Phaser.Scene.call(this, { key: 'Stage3Scene' }); }
     Stage3Scene.prototype = Object.create(Phaser.Scene.prototype);
@@ -1340,7 +1346,6 @@
         this.players.forEach(p => {
             if (!p.alive) return;
 
-            // AI 邏輯加強：會瞄準最近的目標並更積極發射
             if (aiPlayers[p.pIndex]) {
                 let targets = this.players.filter(pl => pl.alive && pl.pIndex !== p.pIndex);
                 if (targets.length > 0) {
@@ -1350,21 +1355,18 @@
                         return dCurr < dPrev ? curr : prev;
                     });
 
-                    // 轉向瞄準
                     p.setFlipX(closest.x < p.x);
                     if (p.gunSprite) {
                         let angle = Phaser.Math.Angle.Between(p.x, p.y, closest.x, closest.y);
                         p.gunSprite.setRotation(angle);
                     }
 
-                    // 射擊頻率加快
                     if (!p.aiLastShoot || time - p.aiLastShoot > 500) {
                         p.aiLastShoot = time;
                         let angle = Phaser.Math.Angle.Between(p.x, p.y, closest.x, closest.y);
                         this.firePlayerBullet(p, angle);
                     }
 
-                    // 智能跟隨與跳躍
                     if (Math.abs(closest.x - p.x) > 100) {
                         p.setVelocityX(closest.x < p.x ? -260 : 260);
                     }
@@ -1415,7 +1417,7 @@
     };
 
     // -------------------------------------------------------------
-    // 關卡 4：傳炸彈大亂鬥 (支援二段跳 + 加強 AI 強度)
+    // 關卡 4：傳炸彈大亂鬥
     // -------------------------------------------------------------
     function Stage4Scene() { Phaser.Scene.call(this, { key: 'Stage4Scene' }); }
     Stage4Scene.prototype = Object.create(Phaser.Scene.prototype);
@@ -1537,7 +1539,6 @@
                             return dCurr < dPrev ? curr : prev;
                         });
 
-                        // 持炸彈 AI 加速追擊
                         if (closest.x < p.x) { p.setVelocityX(-310); p.setFlipX(true); }
                         else { p.setVelocityX(310); p.setFlipX(false); }
 
@@ -1546,7 +1547,6 @@
                         }
                     }
                 } else {
-                    // 沒拿炸彈的 AI 遠離炸彈持有者
                     if (holder && holder.alive) {
                         if (holder.x < p.x) { p.setVelocityX(270); p.setFlipX(false); }
                         else { p.setVelocityX(-270); p.setFlipX(true); }
@@ -1573,7 +1573,6 @@
                 else { p.setVelocityX(0); }
             }
 
-            // 支持二段跳躍
             if ((Phaser.Input.Keyboard.JustDown(this.keys.space) || mobileInput.jumpJustDown) && time >= p.stunnedUntil) { 
                 if (p.body.touching.down) {
                     p.setVelocityY(-500);
@@ -1589,7 +1588,7 @@
     };
 
     // -------------------------------------------------------------
-    // 關卡 5：高難度雷射牆夾擊障礙 (修復精確觸碰雷射判定)
+    // 關卡 5：高難度雷射牆夾擊障礙
     // -------------------------------------------------------------
     function Stage5Scene() { Phaser.Scene.call(this, { key: 'Stage5Scene' }); }
     Stage5Scene.prototype = Object.create(Phaser.Scene.prototype);
@@ -1644,7 +1643,6 @@
             });
         });
 
-        // 加入精確物理重疊判定
         this.players.forEach(p => {
             this.physics.add.overlap(p, this.laserWalls, (player, wall) => {
                 if (player.alive && this.isReady && !this.isEnded) {
@@ -1808,7 +1806,8 @@
     ResultScene.prototype = Object.create(Phaser.Scene.prototype);
     ResultScene.prototype.create = function() {
         toggleMobileControls(false);
-        if (window.domRoomInput) window.domRoomInput.style.display = 'none';
+        let roomInputDom = document.getElementById('room-input-dom');
+        if (roomInputDom) roomInputDom.style.display = 'none';
         initAnimations(this);
         createRichBackground(this);
 
