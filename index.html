@@ -182,7 +182,6 @@
             transform: translateY(-2px);
         }
 
-        /* 統一手機與電腦的房號輸入框樣式，防止手機上過大或跑位 */
         #room-input-dom {
             position: absolute;
             text-align: center;
@@ -201,7 +200,6 @@
 <body>
 
     <div id="game-container">
-        <!-- 房號輸入框 (固定尺寸與精確相對定位) -->
         <input type="text" id="room-input-dom" maxlength="4" placeholder="4位房號">
 
         <div id="login-overlay">
@@ -706,7 +704,7 @@
     function syncMyPosition(scene) {
         if (!roomId || !scene.players || !scene.players[myPlayerIndex - 1]) return;
         let now = scene.time.now;
-        if (now - lastSyncTime < 25) return; // 提升同步頻率，讓動作更即時順暢
+        if (now - lastSyncTime < 25) return; 
         lastSyncTime = now;
 
         let p = scene.players[myPlayerIndex - 1];
@@ -723,9 +721,8 @@
         if (!scene.players) return;
         scene.players.forEach((p) => {
             if (p.pIndex !== myPlayerIndex && !aiPlayers[p.pIndex] && p.alive && p.targetX !== undefined) {
-                // 加快插值跟隨速度，減少延遲感
-                p.x = Phaser.Math.Linear(p.x, p.targetX, 0.55);
-                p.y = Phaser.Math.Linear(p.y, p.targetY, 0.55);
+                p.x = Phaser.Math.Linear(p.x, p.targetX, 0.6);
+                p.y = Phaser.Math.Linear(p.y, p.targetY, 0.6);
             }
         });
     }
@@ -774,7 +771,6 @@
 
         this.add.text(785, 125, '房號:', { fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0, 0.5);
 
-        // 精確計算並對齊房號輸入框，確保在任何手機和電腦上大小和位置完美一致
         let roomInputDom = document.getElementById('room-input-dom');
         if (roomInputDom) {
             roomInputDom.style.display = 'block';
@@ -894,14 +890,21 @@
             });
         }
 
-        let canStart = !roomId || isHost;
+        // 嚴格檢查：必須所有已加入的真實玩家都按準備好，房主才能點擊開始
+        let activeJoinedIndices = [];
+        for (let i = 1; i <= 4; i++) {
+            if (joinedPlayers[i]) activeJoinedIndices.push(i);
+        }
+        let allReady = activeJoinedIndices.length > 0 && activeJoinedIndices.every(idx => readyStatus[idx]);
+
+        let canStart = (!roomId || isHost) && allReady;
         let startBtnBgColor = canStart ? 0x00b894 : 0x636e72;
-        let startBtnTextStr = canStart ? '開始遊戲 / 進入關卡' : '等待房主開始遊戲...';
+        let startBtnTextStr = (!roomId || isHost) ? (allReady ? '開始遊戲 / 進入關卡' : '等待所有玩家準備...') : '等待房主開始遊戲...';
 
         let startBtn = this.add.rectangle(640, 625, 340, 56, startBtnBgColor);
         if (canStart) startBtn.setInteractive({ useHandCursor: true });
         
-        this.add.text(640, 625, startBtnTextStr, { fontFamily: CUTE_FONT_FAMILY, fontSize: '22px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
+        this.add.text(640, 625, startBtnTextStr, { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
 
         if (canStart) {
             startBtn.on('pointerdown', () => {
@@ -992,12 +995,13 @@
         scene.time.delayedCall(500, () => { scene.scene.start('ResultScene'); });
     }
 
+    // 修復並強化 AI 邏輯，確保電腦版與手機版 AI 完全正常運作
     function updateAIPlayers(scene) {
         scene.players.forEach(p => {
             if (aiPlayers[p.pIndex] && p.alive) {
                 if (!p.aiTimer || scene.time.now > p.aiTimer) {
                     p.aiDir = Phaser.Math.Between(-1, 1);
-                    p.aiTimer = scene.time.now + Phaser.Math.Between(400, 1000);
+                    p.aiTimer = scene.time.now + Phaser.Math.Between(500, 1200);
                 }
                 p.setVelocityX(p.aiDir * 260);
                 if (p.aiDir !== 0) p.setFlipX(p.aiDir < 0);
