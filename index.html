@@ -161,7 +161,6 @@
     let roomRef = null;
     let aiPlayers = {}; 
     
-    // 效能與同步優化變數
     let lastSyncTime = 0;
     let lastSentX = 0;
     let lastSentY = 0;
@@ -553,7 +552,7 @@
         }
     }
 
-    // 最佳化連線同步：只有位置有明顯移動或時間間隔足夠時才發送，降低不同頻與延遲
+    // 最佳化連線同步：大幅降低抖動，只在移動顯著時同步
     function syncMyPosition(scene) {
         if (!roomId || !scene.players || !scene.players[myPlayerIndex - 1]) return;
         let p = scene.players[myPlayerIndex - 1];
@@ -562,7 +561,7 @@
         let now = scene.time.now;
         let movedDist = Math.hypot(p.x - lastSentX, p.y - lastSentY);
 
-        if (now - lastSyncTime > 40 || movedDist > 2) {
+        if (now - lastSyncTime > 35 || movedDist > 2) {
             lastSyncTime = now;
             lastSentX = p.x;
             lastSentY = p.y;
@@ -575,18 +574,17 @@
         }
     }
 
+    // 提高插值平滑度，消除不同頻延遲感
     function updateRemotePlayersLerp(scene) {
         if (!scene.players) return;
         scene.players.forEach((p) => {
             if (p.pIndex !== myPlayerIndex && p.alive && p.targetX !== undefined) {
-                // 提高插值係數（0.8），讓遠端移動更跟手、減少延遲感
-                p.x = Phaser.Math.Linear(p.x, p.targetX, 0.8);
-                p.y = Phaser.Math.Linear(p.y, p.targetY, 0.8);
+                p.x = Phaser.Math.Linear(p.x, p.targetX, 0.75);
+                p.y = Phaser.Math.Linear(p.y, p.targetY, 0.75);
             }
         });
     }
 
-    // 修復手機版 AI：改由在房間內第一個真實玩家（或單人時的自己）穩定計算，避免 AI 停格或失效
     function updateAIPlayers(scene) {
         let activePlayers = Object.keys(joinedPlayers).filter(k => joinedPlayers[k]);
         let isAIController = !roomId || (activePlayers.length > 0 && myPlayerIndex == activePlayers[0]);
@@ -752,7 +750,7 @@
     };
 
     // -------------------------------------------------------------
-    // 標題大廳畫面 (TitleScene)
+    // 標題大廳畫面 (TitleScene) - 完美排版，電腦/手機皆有一鍵加入與建立房間
     // -------------------------------------------------------------
     function TitleScene() { Phaser.Scene.call(this, { key: 'TitleScene' }); }
     TitleScene.prototype = Object.create(Phaser.Scene.prototype);
@@ -773,59 +771,14 @@
             fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#ffffff', fontWeight: '900' 
         }).setOrigin(0, 0.5);
 
-        let joinRoomCode = roomId || '----';
-        let roomCodeBox = this.add.rectangle(820, 125, 140, 40, 0x2d3436).setInteractive({ useHandCursor: true });
-        roomCodeBox.setStrokeStyle(3, 0xff7675);
-        let roomCodeText = this.add.text(820, 125, joinRoomCode, {
-            fontFamily: CUTE_FONT_FAMILY, fontSize: '18px', fill: '#ff7675', fontWeight: '900'
-        }).setOrigin(0.5);
-
-        roomCodeBox.on('pointerdown', () => {
-            let code = prompt('請輸入 4 位數房號：', '');
-            if (code && code.trim().length === 4) {
-                joinRoomCode = code.trim();
-                roomCodeText.setText(joinRoomCode);
-                roomId = joinRoomCode;
-                isHost = false;
-
-                db.ref(`rooms/${roomId}`).once('value', (snapshot) => {
-                    let roomData = snapshot.val();
-                    if (!roomData) {
-                        alert('找不到此房間，請確認房號是否正確！');
-                        roomId = null;
-                        roomCodeText.setText('----');
-                        return;
-                    }
-
-                    let players = roomData.players || {};
-                    let takenIndices = Object.values(players).map(p => p.index);
-                    
-                    myPlayerIndex = 2;
-                    for (let i = 1; i <= 4; i++) {
-                        if (!takenIndices.includes(i)) {
-                            myPlayerIndex = i;
-                            break;
-                        }
-                    }
-
-                    playerNames[myPlayerIndex] = myNickname;
-
-                    db.ref(`rooms/${roomId}/players/${myId}`).set({
-                        index: myPlayerIndex,
-                        nickname: myNickname,
-                        ready: false
-                    });
-
-                    setupFirebaseListeners(this);
-                    playSound('powerup');
-                    this.scene.restart();
-                });
-            } else if (code) {
-                alert('請輸入正確的 4 位數房號！');
-            }
-        });
-
-        this.add.text(710, 125, '輸入房號:', { fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0, 0.5);
+        if (roomId) {
+            let copyBtn = this.add.rectangle(1040, 125, 110, 34, 0xfab1a0).setInteractive({ useHandCursor: true });
+            this.add.text(1040, 125, '複製房號', { fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#d35400', fontWeight: '900' }).setOrigin(0.5);
+            copyBtn.on('pointerdown', () => {
+                navigator.clipboard.writeText(roomId);
+                alert('4 位數派對房號已複製：' + roomId);
+            });
+        }
 
         let playerBoxes = [
             { index: 1, name: playerNames[1], color: 0xffffff, textColor: '#ffffff', key: 'p1', x: 230, y: 260 },
@@ -858,8 +811,9 @@
             }
         });
 
-        let createBtn = this.add.rectangle(640, 485, 340, 50, 0x0984e3).setInteractive({ useHandCursor: true });
-        this.add.text(640, 485, '建立 4 人派對房', { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
+        // 建立房間按鈕
+        let createBtn = this.add.rectangle(450, 485, 300, 50, 0x0984e3).setInteractive({ useHandCursor: true });
+        this.add.text(450, 485, '建立 4 人派對房', { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
         createBtn.on('pointerdown', () => {
             roomId = Math.floor(1000 + Math.random() * 9000).toString();
             isHost = true;
@@ -878,14 +832,50 @@
             this.scene.restart();
         });
 
-        if (roomId) {
-            let copyBtn = this.add.rectangle(1020, 125, 110, 34, 0xfab1a0).setInteractive({ useHandCursor: true });
-            this.add.text(1020, 125, '複製房號', { fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#d35400', fontWeight: '900' }).setOrigin(0.5);
-            copyBtn.on('pointerdown', () => {
-                navigator.clipboard.writeText(roomId);
-                alert('4 位數派對房號已複製：' + roomId);
-            });
-        }
+        // 加入房間按鈕
+        let joinBtn = this.add.rectangle(830, 485, 300, 50, 0x3498db).setInteractive({ useHandCursor: true });
+        this.add.text(830, 485, '輸入房號加入房間', { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
+        joinBtn.on('pointerdown', () => {
+            let code = prompt('請輸入 4 位數房號：', '');
+            if (code && code.trim().length === 4) {
+                roomId = code.trim();
+                isHost = false;
+
+                db.ref(`rooms/${roomId}`).once('value', (snapshot) => {
+                    let roomData = snapshot.val();
+                    if (!roomData) {
+                        alert('找不到此房間，請確認房號是否正確！');
+                        roomId = null;
+                        return;
+                    }
+
+                    let players = roomData.players || {};
+                    let takenIndices = Object.values(players).map(p => p.index);
+                    
+                    myPlayerIndex = 2;
+                    for (let i = 1; i <= 4; i++) {
+                        if (!takenIndices.includes(i)) {
+                            myPlayerIndex = i;
+                            break;
+                        }
+                    }
+
+                    playerNames[myPlayerIndex] = myNickname;
+
+                    db.ref(`rooms/${roomId}/players/${myId}`).set({
+                        index: myPlayerIndex,
+                        nickname: myNickname,
+                        ready: false
+                    });
+
+                    setupFirebaseListeners(this);
+                    playSound('powerup');
+                    this.scene.restart();
+                });
+            } else if (code) {
+                alert('請輸入正確的 4 位數房號！');
+            }
+        });
 
         let activeJoinedIndices = [];
         for (let i = 1; i <= 4; i++) {
