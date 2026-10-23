@@ -116,21 +116,6 @@
             background: rgba(231, 76, 60, 1);
             transform: scale(0.92);
         }
-
-        /* 房號輸入框樣式 */
-        .room-input-style {
-            width: 100px;
-            height: 32px;
-            text-align: center;
-            font-size: 15px;
-            font-weight: 800;
-            border-radius: 8px;
-            border: 3px solid #ff7675;
-            background-color: #2d3436;
-            color: #ffffff;
-            outline: none;
-            -webkit-appearance: none;
-        }
     </style>
 </head>
 <body>
@@ -689,7 +674,6 @@
         width: 1280,
         height: 720,
         parent: 'game-container',
-        dom: { createContainer: true },
         scale: {
             mode: Phaser.Scale.FIT,
             autoCenter: Phaser.Scale.CENTER_BOTH
@@ -704,7 +688,7 @@
     const game = new Phaser.Game(config);
 
     // -------------------------------------------------------------
-    // 登入畫面 (LoginScene) - 改用純 Phaser 介面，完美解決黑屏問題
+    // 登入畫面 (LoginScene)
     // -------------------------------------------------------------
     function LoginScene() { Phaser.Scene.call(this, { key: 'LoginScene' }); }
     LoginScene.prototype = Object.create(Phaser.Scene.prototype);
@@ -723,13 +707,11 @@
             fontFamily: CUTE_FONT_FAMILY, fontSize: '22px', fill: '#ffffff', fontWeight: '800'
         }).setOrigin(0.5);
 
-        // 暱稱輸入框外框
         let boxBg = this.add.rectangle(640, 330, 400, 60, 0x2d3436).setStrokeStyle(4, 0x00b894);
         let nameText = this.add.text(640, 330, myNickname, {
             fontFamily: CUTE_FONT_FAMILY, fontSize: '26px', fill: '#55efc4', fontWeight: '900'
         }).setOrigin(0.5);
 
-        // 點擊可以隨機換名字
         boxBg.setInteractive({ useHandCursor: true });
         boxBg.on('pointerdown', () => {
             let list = ['小雞', '霸氣小雞', '特攻小雞', '無敵小雞', '閃電小雞', '神射小雞', '派對小雞', '超人小雞'];
@@ -742,7 +724,6 @@
             fontFamily: CUTE_FONT_FAMILY, fontSize: '14px', fill: '#b2bec3', fontWeight: '700'
         }).setOrigin(0.5);
 
-        // 開始進入大廳按鈕
         let submitBtn = this.add.rectangle(640, 480, 320, 60, 0x00b894).setInteractive({ useHandCursor: true });
         submitBtn.setStrokeStyle(3, 0xffffff);
         this.add.text(640, 480, '進入遊戲大廳', {
@@ -756,7 +737,7 @@
     };
 
     // -------------------------------------------------------------
-    // 標題大廳畫面 (TitleScene)
+    // 標題大廳畫面 (TitleScene) - 完全使用純Phaser介面，絕不跑版
     // -------------------------------------------------------------
     function TitleScene() { Phaser.Scene.call(this, { key: 'TitleScene' }); }
     TitleScene.prototype = Object.create(Phaser.Scene.prototype);
@@ -774,11 +755,63 @@
         }).setOrigin(0.5);
 
         this.add.text(125, 125, '派對房號：' + (roomId ? (roomId + (isHost ? ' (房主)' : ` (P${myPlayerIndex})`)) : '未加入房間'), { 
-            fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' 
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#ffffff', fontWeight: '900' 
         }).setOrigin(0, 0.5);
 
-        let htmlInputStr = '<input type="text" id="room-code-input" maxlength="4" placeholder="4位房號" class="room-input-style">';
-        let inputDom = this.add.dom(840, 125).createFromHTML(htmlInputStr);
+        // 改用純 Phaser 互動按鈕來輸入房號（點擊後隨機或彈出提示輸入），完美避開 HTML 跑版
+        let joinRoomCode = roomId || '----';
+        let roomCodeBox = this.add.rectangle(820, 125, 140, 40, 0x2d3436).setInteractive({ useHandCursor: true });
+        roomCodeBox.setStrokeStyle(3, 0xff7675);
+        let roomCodeText = this.add.text(820, 125, joinRoomCode, {
+            fontFamily: CUTE_FONT_FAMILY, fontSize: '18px', fill: '#ff7675', fontWeight: '900'
+        }).setOrigin(0.5);
+
+        roomCodeBox.on('pointerdown', () => {
+            let code = prompt('請輸入 4 位數房號：', '');
+            if (code && code.trim().length === 4) {
+                joinRoomCode = code.trim();
+                roomCodeText.setText(joinRoomCode);
+                roomId = joinRoomCode;
+                isHost = false;
+
+                db.ref(`rooms/${roomId}`).once('value', (snapshot) => {
+                    let roomData = snapshot.val();
+                    if (!roomData) {
+                        alert('找不到此房間，請確認房號是否正確！');
+                        roomId = null;
+                        roomCodeText.setText('----');
+                        return;
+                    }
+
+                    let players = roomData.players || {};
+                    let takenIndices = Object.values(players).map(p => p.index);
+                    
+                    myPlayerIndex = 2;
+                    for (let i = 1; i <= 4; i++) {
+                        if (!takenIndices.includes(i)) {
+                            myPlayerIndex = i;
+                            break;
+                        }
+                    }
+
+                    playerNames[myPlayerIndex] = myNickname;
+
+                    db.ref(`rooms/${roomId}/players/${myId}`).set({
+                        index: myPlayerIndex,
+                        nickname: myNickname,
+                        ready: false
+                    });
+
+                    setupFirebaseListeners(this);
+                    playSound('powerup');
+                    this.scene.restart();
+                });
+            } else if (code) {
+                alert('請輸入正確的 4 位數房號！');
+            }
+        });
+
+        this.add.text(710, 125, '輸入房號:', { fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0, 0.5);
 
         let playerBoxes = [
             { index: 1, name: playerNames[1], color: 0xffffff, textColor: '#ffffff', key: 'p1', x: 230, y: 260 },
@@ -831,56 +864,12 @@
             this.scene.restart();
         });
 
-        let joinBtn = this.add.rectangle(640, 548, 340, 50, 0x3498db).setInteractive({ useHandCursor: true });
-        this.add.text(640, 548, '加入房間', { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
-        joinBtn.on('pointerdown', () => {
-            let inputEl = document.getElementById('room-code-input');
-            let val = inputEl ? inputEl.value.trim() : '';
-            if (val.length === 4) {
-                roomId = val;
-                isHost = false;
-
-                db.ref(`rooms/${roomId}`).once('value', (snapshot) => {
-                    let roomData = snapshot.val();
-                    if (!roomData) {
-                        alert('找不到此房間，請確認房號是否正確！');
-                        return;
-                    }
-
-                    let players = roomData.players || {};
-                    let takenIndices = Object.values(players).map(p => p.index);
-                    
-                    myPlayerIndex = 2;
-                    for (let i = 1; i <= 4; i++) {
-                        if (!takenIndices.includes(i)) {
-                            myPlayerIndex = i;
-                            break;
-                        }
-                    }
-
-                    playerNames[myPlayerIndex] = myNickname;
-
-                    db.ref(`rooms/${roomId}/players/${myId}`).set({
-                        index: myPlayerIndex,
-                        nickname: myNickname,
-                        ready: false
-                    });
-
-                    setupFirebaseListeners(this);
-                    playSound('powerup');
-                    this.scene.restart();
-                });
-            } else {
-                alert('請輸入正確的 4 位數房號！');
-            }
-        });
-
         if (roomId) {
-            let copyBtn = this.add.rectangle(1040, 125, 110, 34, 0xfab1a0).setInteractive({ useHandCursor: true });
-            this.add.text(1040, 125, '複製房號', { fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#d35400', fontWeight: '900' }).setOrigin(0.5);
+            let copyBtn = this.add.rectangle(1020, 125, 110, 34, 0xfab1a0).setInteractive({ useHandCursor: true });
+            this.add.text(1020, 125, '複製房號', { fontFamily: CUTE_FONT_FAMILY, fontSize: '13px', fill: '#d35400', fontWeight: '900' }).setOrigin(0.5);
             copyBtn.on('pointerdown', () => {
                 navigator.clipboard.writeText(roomId);
-                alert('4 位數派對房號已複製！');
+                alert('4 位數派對房號已複製：' + roomId);
             });
         }
 
@@ -894,10 +883,10 @@
         let startBtnBgColor = canStart ? 0x00b894 : 0x636e72;
         let startBtnTextStr = (!roomId || isHost) ? (allReady ? '開始遊戲 / 進入關卡' : '等待所有玩家準備...') : '等待房主開始遊戲...';
 
-        let startBtn = this.add.rectangle(640, 625, 340, 56, startBtnBgColor);
+        let startBtn = this.add.rectangle(640, 570, 340, 56, startBtnBgColor);
         if (canStart) startBtn.setInteractive({ useHandCursor: true });
         
-        this.add.text(640, 625, startBtnTextStr, { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
+        this.add.text(640, 570, startBtnTextStr, { fontFamily: CUTE_FONT_FAMILY, fontSize: '20px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
 
         if (canStart) {
             startBtn.on('pointerdown', () => {
@@ -1368,7 +1357,7 @@
                 this.scene.start('TitleScene');
             });
         } else {
-            this.add.text(640, 180, '關卡結算！', { fontFamily: CUTE_FONT_FAMILY, fontSize: '46px', fill: '#f1c40f', fontWeight: '900' }).setOrigin(0.5);
+            this.add.text(640, 180, '關卡結算！', { fontFamily: CUTE_FONT_FAMILY, fontSize: '46px', fill: '#f1c40f', fontWeight: '900' }.setOrigin(0.5));
             let scoreStr = `P1: ${scores[1]} | P2: ${scores[2]} | P3: ${scores[3]} | P4: ${scores[4]} (目標 30 分)`;
             this.add.text(640, 280, scoreStr, { fontFamily: CUTE_FONT_FAMILY, fontSize: '22px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
 
