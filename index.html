@@ -160,7 +160,11 @@
     let isHost = false;
     let roomRef = null;
     let aiPlayers = {}; 
+    
+    // 效能與同步優化變數
     let lastSyncTime = 0;
+    let lastSentX = 0;
+    let lastSentY = 0;
 
     let mobileInput = { left: false, right: false, jumpJustDown: false, shootJustDown: false };
 
@@ -549,14 +553,20 @@
         }
     }
 
+    // 最佳化連線同步：只有位置有明顯移動或時間間隔足夠時才發送，降低不同頻與延遲
     function syncMyPosition(scene) {
         if (!roomId || !scene.players || !scene.players[myPlayerIndex - 1]) return;
-        let now = scene.time.now;
-        if (now - lastSyncTime < 25) return; 
-        lastSyncTime = now;
-
         let p = scene.players[myPlayerIndex - 1];
-        if (p && p.alive) {
+        if (!p || !p.alive) return;
+
+        let now = scene.time.now;
+        let movedDist = Math.hypot(p.x - lastSentX, p.y - lastSentY);
+
+        if (now - lastSyncTime > 40 || movedDist > 2) {
+            lastSyncTime = now;
+            lastSentX = p.x;
+            lastSentY = p.y;
+
             db.ref(`rooms/${roomId}/pos/${myPlayerIndex}`).set({
                 x: Math.round(p.x),
                 y: Math.round(p.y),
@@ -569,15 +579,20 @@
         if (!scene.players) return;
         scene.players.forEach((p) => {
             if (p.pIndex !== myPlayerIndex && p.alive && p.targetX !== undefined) {
-                p.x = Phaser.Math.Linear(p.x, p.targetX, 0.6);
-                p.y = Phaser.Math.Linear(p.y, p.targetY, 0.6);
+                // 提高插值係數（0.8），讓遠端移動更跟手、減少延遲感
+                p.x = Phaser.Math.Linear(p.x, p.targetX, 0.8);
+                p.y = Phaser.Math.Linear(p.y, p.targetY, 0.8);
             }
         });
     }
 
+    // 修復手機版 AI：改由在房間內第一個真實玩家（或單人時的自己）穩定計算，避免 AI 停格或失效
     function updateAIPlayers(scene) {
-        if (!isHost && roomId) return; 
-        
+        let activePlayers = Object.keys(joinedPlayers).filter(k => joinedPlayers[k]);
+        let isAIController = !roomId || (activePlayers.length > 0 && myPlayerIndex == activePlayers[0]);
+
+        if (!isAIController) return; 
+
         scene.players.forEach(p => {
             if (aiPlayers[p.pIndex] && p.alive) {
                 if (!p.aiTimer || scene.time.now > p.aiTimer) {
@@ -737,7 +752,7 @@
     };
 
     // -------------------------------------------------------------
-    // 標題大廳畫面 (TitleScene) - 完全使用純Phaser介面，絕不跑版
+    // 標題大廳畫面 (TitleScene)
     // -------------------------------------------------------------
     function TitleScene() { Phaser.Scene.call(this, { key: 'TitleScene' }); }
     TitleScene.prototype = Object.create(Phaser.Scene.prototype);
@@ -758,7 +773,6 @@
             fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#ffffff', fontWeight: '900' 
         }).setOrigin(0, 0.5);
 
-        // 改用純 Phaser 互動按鈕來輸入房號（點擊後隨機或彈出提示輸入），完美避開 HTML 跑版
         let joinRoomCode = roomId || '----';
         let roomCodeBox = this.add.rectangle(820, 125, 140, 40, 0x2d3436).setInteractive({ useHandCursor: true });
         roomCodeBox.setStrokeStyle(3, 0xff7675);
@@ -1105,7 +1119,10 @@
                     p.setFlipX(closest.x < p.x);
                     if (p.gunSprite) p.gunSprite.setRotation(angle);
 
-                    if ((!isHost && !roomId) || isHost) {
+                    let activePlayers = Object.keys(joinedPlayers).filter(k => joinedPlayers[k]);
+                    let isAIController = !roomId || (activePlayers.length > 0 && myPlayerIndex == activePlayers[0]);
+
+                    if (isAIController) {
                         if (!p.aiLastShoot || time - p.aiLastShoot > 600) {
                             p.aiLastShoot = time;
                             this.firePlayerBullet(p, angle);
@@ -1357,7 +1374,7 @@
                 this.scene.start('TitleScene');
             });
         } else {
-            this.add.text(640, 180, '關卡結算！', { fontFamily: CUTE_FONT_FAMILY, fontSize: '46px', fill: '#f1c40f', fontWeight: '900' }.setOrigin(0.5));
+            this.add.text(640, 180, '關卡結算！', { fontFamily: CUTE_FONT_FAMILY, fontSize: '46px', fill: '#f1c40f', fontWeight: '900' }).setOrigin(0.5);
             let scoreStr = `P1: ${scores[1]} | P2: ${scores[2]} | P3: ${scores[3]} | P4: ${scores[4]} (目標 30 分)`;
             this.add.text(640, 280, scoreStr, { fontFamily: CUTE_FONT_FAMILY, fontSize: '22px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
 
