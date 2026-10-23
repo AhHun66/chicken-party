@@ -182,13 +182,11 @@
             transform: translateY(-2px);
         }
 
-        /* 修正手機版房號輸入框跑位問題：改用絕對固定在 UI 介面上 */
+        /* 統一手機與電腦的房號輸入框樣式，防止手機上過大或跑位 */
         #room-input-dom {
             position: absolute;
-            width: 90px;
-            height: 32px;
             text-align: center;
-            font-size: 14px;
+            font-size: 14px !important;
             font-weight: 800;
             border-radius: 8px;
             border: 3px solid #ff7675;
@@ -196,13 +194,14 @@
             color: #ffffff;
             z-index: 10;
             display: none;
+            -webkit-appearance: none;
         }
     </style>
 </head>
 <body>
 
     <div id="game-container">
-        <!-- 房號輸入框 (固定在遊戲畫布內，隨比例自動縮放) -->
+        <!-- 房號輸入框 (固定尺寸與精確相對定位) -->
         <input type="text" id="room-input-dom" maxlength="4" placeholder="4位房號">
 
         <div id="login-overlay">
@@ -678,7 +677,8 @@
         roomRef.child('state').on('value', (snapshot) => {
             let state = snapshot.val();
             if (state && state.currentStage && scene.scene.key === 'TitleScene') {
-                if (window.domRoomInput) window.domRoomInput.style.display = 'none';
+                let roomInputDom = document.getElementById('room-input-dom');
+                if (roomInputDom) roomInputDom.style.display = 'none';
                 toggleMobileControls(true);
                 currentStageIndex = state.currentStage;
                 scene.scene.start('Stage' + state.currentStage + 'Scene');
@@ -706,7 +706,7 @@
     function syncMyPosition(scene) {
         if (!roomId || !scene.players || !scene.players[myPlayerIndex - 1]) return;
         let now = scene.time.now;
-        if (now - lastSyncTime < 30) return; 
+        if (now - lastSyncTime < 25) return; // 提升同步頻率，讓動作更即時順暢
         lastSyncTime = now;
 
         let p = scene.players[myPlayerIndex - 1];
@@ -723,8 +723,9 @@
         if (!scene.players) return;
         scene.players.forEach((p) => {
             if (p.pIndex !== myPlayerIndex && !aiPlayers[p.pIndex] && p.alive && p.targetX !== undefined) {
-                p.x = Phaser.Math.Linear(p.x, p.targetX, 0.4);
-                p.y = Phaser.Math.Linear(p.y, p.targetY, 0.4);
+                // 加快插值跟隨速度，減少延遲感
+                p.x = Phaser.Math.Linear(p.x, p.targetX, 0.55);
+                p.y = Phaser.Math.Linear(p.y, p.targetY, 0.55);
             }
         });
     }
@@ -773,16 +774,17 @@
 
         this.add.text(785, 125, '房號:', { fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0, 0.5);
 
-        // 使用安全的響應式定位更新 DOM 輸入框，防止手機亂跑
+        // 精確計算並對齊房號輸入框，確保在任何手機和電腦上大小和位置完美一致
         let roomInputDom = document.getElementById('room-input-dom');
         if (roomInputDom) {
             roomInputDom.style.display = 'block';
             let updateInputPos = () => {
                 let canvasRect = document.querySelector('canvas').getBoundingClientRect();
-                roomInputDom.style.left = (canvasRect.left + canvasRect.width * (845 / 1280)) + 'px';
+                roomInputDom.style.left = (canvasRect.left + canvasRect.width * (840 / 1280)) + 'px';
                 roomInputDom.style.top = (canvasRect.top + canvasRect.height * (110 / 720)) + 'px';
                 roomInputDom.style.width = (canvasRect.width * (100 / 1280)) + 'px';
-                roomInputDom.style.height = (canvasRect.height * (35 / 720)) + 'px';
+                roomInputDom.style.height = (canvasRect.height * (32 / 720)) + 'px';
+                roomInputDom.style.fontSize = Math.max(12, canvasRect.height * (18 / 720)) + 'px';
             };
             updateInputPos();
             window.addEventListener('resize', updateInputPos);
