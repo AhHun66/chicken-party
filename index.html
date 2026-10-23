@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>小雞 4 人派對：多關卡積分大賽</title>
     <!-- Phaser 3 遊戲引擎 -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
@@ -33,6 +33,7 @@
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            position: fixed;
         }
 
         #game-container {
@@ -45,6 +46,7 @@
             overflow: hidden;
             box-shadow: 0 10px 25px rgba(0,0,0,0.7);
             position: relative;
+            background: #0a0a16;
         }
 
         #mobile-controls {
@@ -552,6 +554,7 @@
         }
     }
 
+    // 最佳化同步頻率與平滑度，消除不同頻與延遲
     function syncMyPosition(scene) {
         if (!roomId || !scene.players || !scene.players[myPlayerIndex - 1]) return;
         let p = scene.players[myPlayerIndex - 1];
@@ -560,7 +563,7 @@
         let now = scene.time.now;
         let movedDist = Math.hypot(p.x - lastSentX, p.y - lastSentY);
 
-        if (now - lastSyncTime > 35 || movedDist > 2) {
+        if (now - lastSyncTime > 30 || movedDist > 1.5) {
             lastSyncTime = now;
             lastSentX = p.x;
             lastSentY = p.y;
@@ -573,12 +576,13 @@
         }
     }
 
+    // 提高遠端插值係數（0.85），讓連線追蹤更即時，解決不同頻感
     function updateRemotePlayersLerp(scene) {
         if (!scene.players) return;
         scene.players.forEach((p) => {
             if (p.pIndex !== myPlayerIndex && p.alive && p.targetX !== undefined) {
-                p.x = Phaser.Math.Linear(p.x, p.targetX, 0.75);
-                p.y = Phaser.Math.Linear(p.y, p.targetY, 0.75);
+                p.x = Phaser.Math.Linear(p.x, p.targetX, 0.85);
+                p.y = Phaser.Math.Linear(p.y, p.targetY, 0.85);
             }
         });
     }
@@ -748,7 +752,7 @@
     };
 
     // -------------------------------------------------------------
-    // 標題大廳畫面 (TitleScene) - 完美修正文字重疊與加入/建立房間按鈕
+    // 標題大廳畫面 (TitleScene)
     // -------------------------------------------------------------
     function TitleScene() { Phaser.Scene.call(this, { key: 'TitleScene' }); }
     TitleScene.prototype = Object.create(Phaser.Scene.prototype);
@@ -765,7 +769,6 @@
             fontFamily: CUTE_FONT_FAMILY, fontSize: '16px', fill: '#dfe6e9', fontWeight: '800', stroke: '#000', strokeThickness: 4
         }).setOrigin(0.5);
 
-        // 左側顯示目前房號資訊與複製按鈕
         this.add.text(80, 125, '派對房號：' + (roomId ? (roomId + (isHost ? ' (房主)' : ` (P${myPlayerIndex})`)) : '未加入房間'), { 
             fontFamily: CUTE_FONT_FAMILY, fontSize: '15px', fill: '#ffffff', fontWeight: '900' 
         }).setOrigin(0, 0.5);
@@ -779,7 +782,6 @@
             });
         }
 
-        // 4位玩家準備區塊
         let playerBoxes = [
             { index: 1, name: playerNames[1], color: 0xffffff, textColor: '#ffffff', key: 'p1', x: 230, y: 260 },
             { index: 2, name: playerNames[2], color: 0x74b9ff, textColor: '#74b9ff', key: 'p2', x: 500, y: 260 },
@@ -832,7 +834,7 @@
             this.scene.restart();
         });
 
-        // 輸入房號加入房間按鈕 (完美排版，絕不重疊)
+        // 輸入房號加入房間按鈕
         let joinBtn = this.add.rectangle(850, 485, 300, 50, 0x3498db).setInteractive({ useHandCursor: true });
         this.add.text(850, 485, '輸入房號加入房間', { fontFamily: CUTE_FONT_FAMILY, fontSize: '19px', fill: '#ffffff', fontWeight: '900' }).setOrigin(0.5);
         joinBtn.on('pointerdown', () => {
